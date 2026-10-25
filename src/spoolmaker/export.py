@@ -60,14 +60,17 @@ def to_stl(m: Manifold) -> bytes:
     return header + np.uint32(len(tris)).astype("<u4").tobytes() + rec.tobytes()
 
 
-def _object_xml(oid: int, name: str, m: Manifold) -> str:
+def mesh_xml(m: Manifold) -> tuple[str, int]:
+    """3MF `<mesh>` element for the export-ready mesh, and its triangle count."""
     verts, tris = mesh_arrays(m)
     vs = "".join(f'<vertex x="{x:.9g}" y="{y:.9g}" z="{z:.9g}"/>' for x, y, z in verts.tolist())
     ts = "".join(f'<triangle v1="{a}" v2="{b}" v3="{c}"/>' for a, b, c in tris.tolist())
-    return (
-        f'<object id="{oid}" name={quoteattr(name)} type="model"><mesh>'
-        f"<vertices>{vs}</vertices><triangles>{ts}</triangles></mesh></object>"
-    )
+    return f"<mesh><vertices>{vs}</vertices><triangles>{ts}</triangles></mesh>", len(tris)
+
+
+def _object_xml(oid: int, name: str, m: Manifold) -> str:
+    mesh, _ = mesh_xml(m)
+    return f'<object id="{oid}" name={quoteattr(name)} type="model">{mesh}</object>'
 
 
 def to_3mf(parts: dict[str, Manifold]) -> bytes:
