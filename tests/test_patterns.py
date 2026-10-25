@@ -46,3 +46,18 @@ def test_wall_margin_and_no_slivers(kind):
     assert (cs - CrossSection.circle(93 - wall + 0.05, 128)).is_empty()
     assert (cs ^ ko.offset(wall - 0.05)).is_empty()
     assert all(p.area() >= 4 for p in cs.decompose())
+
+
+@pytest.mark.parametrize("with_keepout", [False, True])
+@pytest.mark.parametrize("kind", KINDS)
+def test_open_area_monotonic_in_density(kind, with_keepout):
+    ko = (
+        CrossSection.square((30, 30)).translate((60, -15))
+        if with_keepout
+        else CrossSection()
+    )
+    areas = [
+        pattern_cutouts(kind, d, 50, 93, 1, ko).area()
+        for d in (0.0, 0.25, 0.5, 0.75, 1.0)
+    ]
+    assert all(b >= a for a, b in zip(areas, areas[1:])), areas

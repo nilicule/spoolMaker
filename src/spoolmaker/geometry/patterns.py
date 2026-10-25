@@ -9,6 +9,8 @@ from manifold3d import CrossSection, FillRule, JoinType, OpType
 MIN_AREA = 4.0  # mm^2, smaller fragments are unprintable slivers
 _ARC_SEGS = 24
 GRID_MIN_CELL = 13.0
+MIN_WEB = 1.6
+VORONOI_CELL = 16.0
 _RING_SEGS = 128
 
 
@@ -65,30 +67,35 @@ def _isogrid(cell, wall, r_in, r_out, seed):
         for i in range(-ni, ni + 1):
             x = i * s + (s / 2 if j % 2 else 0.0)
             y = j * h
-            # upward triangle centroid at y + ri, downward at y + 2*ri ... use
-            # row base y: up centroid y+ri, down centroid y+h-ri, x shifted s/2
             for shape, cx, cy in ((up, x, y + ri), (down, x + s / 2, y + h - ri)):
                 if r_in - s <= math.hypot(cx, cy) <= reach:
                     polys.append(np.array([cx, cy]) + shape * k)
     return polys
 
 
-def _holes(cell, wall, r_in, r_out, seed):
-    d = cell - wall
-    rad = d / 2
-    t = np.linspace(0, 2 * np.pi, _ARC_SEGS, endpoint=False)
-    unit = rad * np.stack([np.cos(t), np.sin(t)], axis=1)
-    r0, r1 = r_in + wall + rad, r_out - wall - rad
-    if r1 < r0:
+def _holes(cell, wall, r_in, r_out, seed, density):
+    span0, span1 = r_in + wall, r_out - wall
+    avail = span1 - span0
+    n_rings = max(int(round(avail / cell)), 1)
+    pitch = avail / n_rings
+    # Hole size follows a continuous fill ramp (not cell - wall) so open area
+    # stays monotonic in density even when the ring count steps.
+    k = _lerp(0.5, 0.92, density)
+    d_hole = min(k * pitch, pitch - MIN_WEB)
+    if d_hole < 2.0:
         return []
-    n_rings = int((r1 - r0) / cell) + 1
-    radii = [(r0 + r1) / 2] if n_rings == 1 else list(np.linspace(r0, r1, n_rings))
+    t = np.linspace(0, 2 * np.pi, _ARC_SEGS, endpoint=False)
+    unit = np.stack([np.cos(t), np.sin(t)], axis=1)
     polys = []
-    for ri, r in enumerate(radii):
-        n = max(int(2 * math.pi * r / cell), 3)
+    for ri in range(n_rings):
+        r = span0 + pitch * (ri + 0.5)
+        n = max(int(round(2 * math.pi * r / pitch)), 3)
+        rad = min(d_hole, 2 * math.pi * r / n - MIN_WEB) / 2
+        if rad < 1.0:
+            continue
         off = (ri % 2) * math.pi / n
         for a in off + np.arange(n) * 2 * math.pi / n:
-            polys.append(np.array([r * math.cos(a), r * math.sin(a)]) + unit)
+            polys.append(np.array([r * math.cos(a), r * math.sin(a)]) + rad * unit)
     return polys
 
 
@@ -106,7 +113,12 @@ def _spokes(cell, wall, r_in, r_out, seed, density):
     return CrossSection.batch_boolean(slots, OpType.Add)
 
 
-def _voronoi(cell, wall, r_in, r_out, seed):
+def _voronoi(cell, wall, r_in, r_out, seed, density):
+    # The point set is fixed (independent of density) so the cell layout does
+    # not reshuffle as the slider moves; only the web thickness ramps from
+    # chunky to thin, which makes open area rise smoothly with density.
+    cell = VORONOI_CELL
+    web = _lerp(6.0, MIN_WEB, density)
     from scipy.spatial import Voronoi
 
     rng = np.random.default_rng(seed)
@@ -140,7 +152,7 @@ def _voronoi(cell, wall, r_in, r_out, seed):
     out = []
     for p in polys:
         cs = CrossSection([p], FillRule.Positive).offset(
-            -wall / 2, JoinType.Round, 2.0, _ARC_SEGS
+            -web / 2, JoinType.Round, 2.0, _ARC_SEGS
         )
         if not cs.is_empty():
             out.append(cs)
@@ -150,7 +162,6 @@ def _voronoi(cell, wall, r_in, r_out, seed):
 _POLY_KINDS = {
     "honeycomb": _honeycomb,
     "isogrid": _isogrid,
-    "holes": _holes,
 }
 
 
@@ -171,7 +182,9 @@ def pattern_cutouts(
         return CrossSection()
     density = min(max(density, 0.0), 1.0)
     cell = _lerp(22, 9, density)
-    if kind in ("honeycomb", "isogrid"):
+    if kind == "holes":
+        cell = _lerp(22, 14, density)
+    elif kind in ("honeycomb", "isogrid", "voronoi"):
         # With the spec'd 22->9 range the web/pitch ratio grows faster than the
         # wall thins, so open area would *drop* with density. Keep the tiling
         # coarser at the dense end so open area rises monotonically.
@@ -180,10 +193,12 @@ def pattern_cutouts(
 
     if kind in _POLY_KINDS:
         shapes = _union(_POLY_KINDS[kind](cell, wall, r_in, r_out, seed))
+    elif kind == "holes":
+        shapes = _union(_holes(cell, wall, r_in, r_out, seed, density))
     elif kind == "spokes":
         shapes = _spokes(cell, wall, r_in, r_out, seed, density)
     elif kind == "voronoi":
-        shapes = _voronoi(cell, wall, r_in, r_out, seed)
+        shapes = _voronoi(cell, wall, r_in, r_out, seed, density)
     else:
         raise ValueError(f"unknown pattern kind: {kind!r}")
     if shapes.is_empty():
