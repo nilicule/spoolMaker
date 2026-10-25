@@ -8,7 +8,8 @@ from dataclasses import dataclass, fields
 OD_RANGE = (197.0, 201.0)
 WIDTH_RANGE = (50.0, 68.0)
 BORE_RANGE = (53.0, 58.0)
-RIM_WIDTH = 7.0
+RIM_WIDTH = 7.0  # solid outer rim of each flange
+RIM_WIDTH_LIGHT = 6.0  # narrower rim in lightweight mode
 MAX_TEXT = 24
 PATTERNS = ("none", "honeycomb", "spokes", "voronoi", "holes", "isogrid")
 MATERIALS = ("PLA", "PETG", "ABS", "ASA", "TPU", "PC")

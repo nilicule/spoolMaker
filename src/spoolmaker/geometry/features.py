@@ -17,7 +17,7 @@ from dataclasses import dataclass
 
 from manifold3d import CrossSection, JoinType, Manifold, OpType
 
-from ..config import RIM_WIDTH, SpoolConfig
+from ..config import SpoolConfig
 from ..filament import gauge_ticks
 from .dims import Dims
 from .patterns import pattern_cutouts
@@ -176,7 +176,7 @@ def _clip_holes(cfg: SpoolConfig, d: Dims) -> CrossSection:
     n = cfg.clip_holes
     if n <= 0:
         return CrossSection()
-    r = d.R - RIM_WIDTH / 2
+    r = d.R - d.rim_width / 2  # centred in the solid rim
     hole = CrossSection.circle(CLIP_HOLE_D / 2, 24)
     holes = []
     for i in range(n):
@@ -186,7 +186,8 @@ def _clip_holes(cfg: SpoolConfig, d: Dims) -> CrossSection:
 
 
 def web_thickness(d: Dims) -> float:
-    return max(MIN_WEB_T, 0.6 * d.t)
+    """Flange web thickness between the hub ring and the rim in lightweight mode."""
+    return max(MIN_WEB_T, 0.5 * d.t)
 
 
 def cutters(cfg: SpoolConfig, d: Dims, lay: Layout) -> list[Manifold]:

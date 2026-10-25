@@ -4,7 +4,7 @@ import time
 import pytest
 from manifold3d import CrossSection, Error, JoinType, Manifold
 
-from spoolmaker.config import RIM_WIDTH, SpoolConfig, validate
+from spoolmaker.config import RIM_WIDTH, RIM_WIDTH_LIGHT, SpoolConfig, validate
 from spoolmaker.geometry.build import assembled, build_half
 from spoolmaker.geometry.dims import dims
 from spoolmaker.geometry.features import (
@@ -19,13 +19,32 @@ PLAIN = dict(pattern="none", label=False, gauge=False, clip_holes=0)
 
 # --- brief tests -----------------------------------------------------------
 
-def test_rim_ring_intact():
-    cfg = SpoolConfig(pattern="voronoi", pattern_density=1.0, clip_holes=8)
+@pytest.mark.parametrize("lightweight", [False, True])
+def test_rim_ring_intact(lightweight):
+    cfg = SpoolConfig(pattern="voronoi", pattern_density=1.0, clip_holes=8, lightweight=lightweight)
     m = build_half(cfg, "a")
     d = dims(cfg)
+    assert d.rim_width == (RIM_WIDTH_LIGHT if lightweight else RIM_WIDTH)
     ring = Manifold.cylinder(d.t, d.R, circular_segments=d.seg) - Manifold.cylinder(
         d.t, d.R - 1.5, circular_segments=d.seg)
     assert (ring - m).volume() < 1e-2           # outer 1.5 mm of rim fully solid
+    # The whole active rim is full thickness apart from the clip holes.
+    rim = Manifold.cylinder(d.t, d.R, circular_segments=d.seg) - Manifold.cylinder(
+        d.t, d.rim_r + 0.1, circular_segments=d.seg)
+    holes = 8 * math.pi * (CLIP_HOLE_D / 2) ** 2 * d.t
+    assert (rim - m).volume() < holes * 1.05 + 1e-2
+
+
+def test_lightweight_narrows_rim_and_hub_ring():
+    from spoolmaker.geometry.dims import HUB_RING, HUB_RING_LIGHT
+    from spoolmaker.geometry.features import web_thickness
+
+    heavy, light = dims(SpoolConfig()), dims(SpoolConfig(lightweight=True))
+    assert heavy.R - heavy.rim_r == RIM_WIDTH and light.R - light.rim_r == RIM_WIDTH_LIGHT
+    assert heavy.hub_ring_r - heavy.r_core_out == HUB_RING
+    assert light.hub_ring_r - light.r_core_out == HUB_RING_LIGHT
+    assert web_thickness(dims(SpoolConfig(flange_thickness=5.0, lightweight=True))) == 2.5
+    assert web_thickness(dims(SpoolConfig(flange_thickness=2.0, lightweight=True))) == 1.6
 
 
 def test_width_unchanged_by_features():
@@ -144,11 +163,13 @@ def test_gauge_ticks_engraved_at_tick_radii():
         assert (removed ^ probe).area() > 0.1 or (removed ^ probe_other).area() > 0.1
 
 
-def test_clip_holes_through():
-    cfg = SpoolConfig(pattern="none", label=False, gauge=False, clip_holes=4)
+@pytest.mark.parametrize("lightweight", [False, True])
+def test_clip_holes_through(lightweight):
+    cfg = SpoolConfig(pattern="none", label=False, gauge=False, clip_holes=4, lightweight=lightweight)
     d = dims(cfg)
     m = build_half(cfg, "b")
-    r = d.R - RIM_WIDTH / 2
+    r = d.R - d.rim_width / 2
+    assert d.R - (r + CLIP_HOLE_D / 2) >= 1.5  # inside the rim, clear of the edge
     for i in range(4):
         a = math.radians(45 + 90 * i)
         pin = Manifold.cylinder(d.t, CLIP_HOLE_D / 2 - 0.1, circular_segments=24).translate(
@@ -181,7 +202,7 @@ def test_lightweight_web_thinned_but_keepouts_full():
     d = dims(cfg)
     lay = layout(cfg, d)
     m = build_half(cfg, "b")
-    web_t = max(1.6, 0.6 * d.t)
+    web_t = max(1.6, 0.5 * d.t)
     # outer face flat: full footprint at the bottom
     assert m.slice(0.01).area() == pytest.approx(build_half(SpoolConfig(pattern="none", clip_holes=0), "b").slice(0.01).area(), rel=1e-3)
     upper = m.slice((web_t + d.t) / 2)

@@ -8,7 +8,7 @@ A designer for two-part, twist-lock, Bambu AMS-compatible filament spools that h
 - Thin-walled tube core (3 mm) with a short bore collar on each flange, printable without supports
 - Refill presets (Bambu Lab refill, custom coil dimensions) with coil clearance and lock clearance settings
 - Flange patterns: honeycomb, spokes, voronoi, holes, isogrid, or none, with density and seed
-- Lightweight mode that thins the flanges
+- Lightweight mode that thins the flange webs and narrows their solid rim and hub ring
 - Engraved label outline with custom text
 - Filament gauge ticks by material
 - Clip holes and an optional NFC tag pocket (for tracking with a phone; the AMS does not read it)

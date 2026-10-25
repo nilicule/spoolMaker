@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from ..config import MIN_LOCK_WALL, RIM_WIDTH, SpoolConfig
+from ..config import MIN_LOCK_WALL, RIM_WIDTH, RIM_WIDTH_LIGHT, SpoolConfig
 
 SLEEVE_WALL = 2.4
 TUBE_WALL = 3.0  # plain core tube wall
@@ -14,7 +14,8 @@ LUG_RADIAL = 1.4  # radial reach of B's lugs (and depth of A's channels into the
 SOCKET_WALL = LUG_RADIAL + MIN_LOCK_WALL
 COLLAR_DEPTH = 8.0  # bore collar height above each flange's inner face
 COLLAR_WALL = 2.4
-HUB_RING = 6.0
+HUB_RING = 6.0  # solid flange zone around the core
+HUB_RING_LIGHT = 4.0  # narrower in lightweight mode
 SEAT_GAP = 0.3  # B's sleeve stops short of A's socket floor; the core tops alone set the width
 SEGMENTS = 128
 
@@ -34,6 +35,7 @@ class Dims:
     r_sleeve_out: float
     r_sleeve_in: float
     hub_ring_r: float  # solid zone on the flange around the core
+    rim_width: float  # solid outer rim
     rim_r: float
     lock_clearance: float
     seg: int
@@ -45,6 +47,8 @@ def dims(cfg: SpoolConfig) -> Dims:
     r_socket_in = r_core_out - SOCKET_WALL
     r_sleeve_out = r_socket_in - cfg.lock_clearance
     R = cfg.outer_diameter / 2
+    rim_width = RIM_WIDTH_LIGHT if cfg.lightweight else RIM_WIDTH
+    hub_ring = HUB_RING_LIGHT if cfg.lightweight else HUB_RING
     return Dims(
         R=R,
         t=cfg.flange_thickness,
@@ -59,8 +63,9 @@ def dims(cfg: SpoolConfig) -> Dims:
         sleeve_wall=SLEEVE_WALL,
         r_sleeve_out=r_sleeve_out,
         r_sleeve_in=r_sleeve_out - SLEEVE_WALL,
-        hub_ring_r=r_core_out + HUB_RING,
-        rim_r=R - RIM_WIDTH,
+        hub_ring_r=r_core_out + hub_ring,
+        rim_width=rim_width,
+        rim_r=R - rim_width,
         lock_clearance=cfg.lock_clearance,
         seg=SEGMENTS,
     )
