@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import json
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import cache
 
 import numpy as np
@@ -52,6 +52,7 @@ class SliceProfile:
     min_sparse_area: float  # mm^2: smaller sparse islands are printed solid
     filament_density: float  # g/cm^3
     flow_ratio: float
+    sparse_pattern: str = "grid"  # anchor_cover models grid; all bundled templates use it
     process: str = ""
     filament: str = ""
     printer: str = ""
@@ -77,11 +78,18 @@ class SliceProfile:
     def anchor_cover(self) -> float:
         """Share of a sparse region's outline its infill anchors run along.
 
+        Assumes grid infill (sparse_pattern; every bundled template uses grid, which a test
+        checks): other patterns end their lines along the outline at other rates.
         Grid infill splits its density over two line directions, each spaced
         2 w / density; at random orientation a line family of spacing p meets an outline
         2 / (pi p) times per mm, so ends land 2 density / (pi w) apart per mm."""
         ends_per_mm = 2 * self.sparse_density / (math.pi * self.sparse_width)
         return min(1.0, self.sparse_anchor * ends_per_mm)
+
+    def geometry_key(self) -> SliceProfile:
+        """This profile without its names: printers whose profiles only differ in name
+        slice a part the same way."""
+        return replace(self, process="", filament="", printer="")
 
     def note(self) -> str:
         return (f"\u2248 {self.printer} \u00b7 "
@@ -124,6 +132,7 @@ def profile_from_settings(s: dict, printer: str = "") -> SliceProfile:
         min_sparse_area=_num(s.get("minimum_sparse_infill_area", 0)),
         filament_density=_num(s["filament_density"]),
         flow_ratio=_num(s["filament_flow_ratio"]),
+        sparse_pattern=str(_first(s.get("sparse_infill_pattern", "grid"))),
         process=str(s.get("print_settings_id", "")),
         filament=str(_first(s.get("filament_settings_id", ""))),
         printer=printer,

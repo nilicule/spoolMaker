@@ -16,11 +16,13 @@ def stats(cfg: SpoolConfig) -> dict:
     w = {h: round(half(cfg, h).volume() / 1000 * density, 1) for h in ("a", "b")}
     w["total"] = round(w["a"] + w["b"], 1)
     profile = bambu_profile(cfg.bambu_printer)
+    profile_filament = profile.filament.split(" @")[0]
     if cfg.print_material == "PLA":  # the profile's own filament (Bambu PLA Basic)
-        rho, filament = profile.filament_density, profile.filament.split(" @")[0]
-    else:
+        rho, filament = profile.filament_density, profile_filament
+    else:  # sliced with the PLA profile, weighed at the chosen material's density
         rho = DENSITY[cfg.print_material]
-        filament = f"{cfg.print_material} at {rho:g} g/cm\u00b3"
+        filament = (f"{profile_filament} profile, weighed as {cfg.print_material} "
+                    f"({rho:g} g/cm\u00b3)")
     est = {h: round(extruded_mm3_for(cfg, h) / 1000 * rho * profile.flow_ratio, 1)
            for h in ("a", "b")}
     est["total"] = round(est["a"] + est["b"], 1)

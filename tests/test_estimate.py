@@ -13,7 +13,7 @@ import pytest
 from manifold3d import Manifold
 
 from spoolmaker import cache
-from spoolmaker.bambu import project_settings
+from spoolmaker.bambu import PRINTERS, project_settings
 from spoolmaker.config import from_query
 from spoolmaker.estimate import (
     bambu_profile, estimate_grams, layer_heights, profile_from_settings, volume_breakdown,
@@ -123,3 +123,26 @@ def test_live_bambu_studio_matches_fixture(tmp_path):
     case = FIXTURES["default@a1"]
     a, b = slice_case(BAMBU_CLI, case["query"])
     assert a == pytest.approx(case["a_g"], rel=0.01) and b == pytest.approx(case["b_g"], rel=0.01)
+
+
+def test_other_material_note_is_honest():
+    note = stats(from_query({"print_material": "PETG"}))["estimate_note"]
+    assert note.endswith("Bambu PLA Basic profile, weighed as PETG (1.27 g/cm³)")
+
+
+@pytest.mark.parametrize("printer", sorted(PRINTERS))
+def test_bundled_templates_use_grid_infill(printer):
+    """SliceProfile.anchor_cover models grid infill."""
+    assert json.loads(project_settings(printer))["sparse_infill_pattern"] == "grid"
+    assert bambu_profile(printer).sparse_pattern == "grid"
+
+
+def test_estimate_cache_shared_by_identical_profiles():
+    from dataclasses import replace
+
+    assert bambu_profile("a1").geometry_key() == bambu_profile("p1s").geometry_key()
+    cfg = from_query({"pattern": "spokes", "pattern_density": "0.37"})
+    cache.extruded_mm3_for(replace(cfg, bambu_printer="a1"), "a")
+    misses = cache._extruded.cache_info().misses
+    cache.extruded_mm3_for(replace(cfg, bambu_printer="p1s"), "a")
+    assert cache._extruded.cache_info().misses == misses
