@@ -8,7 +8,6 @@ from spoolmaker.config import RIM_WIDTH, RIM_WIDTH_LIGHT, SpoolConfig, validate
 from spoolmaker.geometry.build import assembled, build_half
 from spoolmaker.geometry.dims import dims
 from spoolmaker.geometry.features import (
-    CLIP_HOLE_D,
     CLIP_PAIR_PITCH,
     ENGRAVE_DEPTH,
     TAG_DEPTH,
@@ -17,24 +16,28 @@ from spoolmaker.geometry.features import (
 )
 
 PLAIN = dict(pattern="none", label=False, gauge=False, clip_holes=0, lightweight=False)
+CLIP_DIAMETERS = [2.0, 2.6, 3.0]  # range ends and the default
 
 
 # --- brief tests -----------------------------------------------------------
 
+@pytest.mark.parametrize("hole_d", CLIP_DIAMETERS)
 @pytest.mark.parametrize("lightweight", [False, True])
-def test_rim_ring_intact(lightweight):
+def test_rim_ring_intact(lightweight, hole_d):
     cfg = SpoolConfig(pattern="voronoi", pattern_density=1.0, clip_holes=8, lightweight=lightweight,
-                      label=True, gauge=True)
+                      label=True, gauge=True, clip_hole_diameter=hole_d)
     m = build_half(cfg, "a")
     d = dims(cfg)
     assert d.rim_width == (RIM_WIDTH_LIGHT if lightweight else RIM_WIDTH)
+    # Fine inner edge: a d.seg-gon would sag ~0.03 mm inwards, into 3.0 mm holes that sit
+    # exactly 1.5 mm from the edge (tangent), and flag that as a breach.
     ring = Manifold.cylinder(d.t, d.R, circular_segments=d.seg) - Manifold.cylinder(
-        d.t, d.R - 1.5, circular_segments=d.seg)
+        d.t, d.R - 1.5, circular_segments=2048)
     assert (ring - m).volume() < 1e-2           # outer 1.5 mm of rim fully solid
     # The whole active rim is full thickness apart from the clip holes (8 pairs).
     rim = Manifold.cylinder(d.t, d.R, circular_segments=d.seg) - Manifold.cylinder(
         d.t, d.rim_r + 0.1, circular_segments=d.seg)
-    holes = 16 * math.pi * (CLIP_HOLE_D / 2) ** 2 * d.t
+    holes = 16 * math.pi * (hole_d / 2) ** 2 * d.t
     assert (rim - m).volume() < holes * 1.05 + 1e-2
 
 
@@ -169,14 +172,16 @@ def test_gauge_ticks_engraved_at_tick_radii():
         assert (removed ^ probe).area() > 0.1 or (removed ^ probe_other).area() > 0.1
 
 
+@pytest.mark.parametrize("hole_d", CLIP_DIAMETERS)
 @pytest.mark.parametrize("lightweight", [False, True])
-def test_clip_holes_through(lightweight):
-    cfg = SpoolConfig(pattern="none", label=False, gauge=False, clip_holes=4, lightweight=lightweight)
+def test_clip_holes_through(lightweight, hole_d):
+    cfg = SpoolConfig(pattern="none", label=False, gauge=False, clip_holes=4, lightweight=lightweight,
+                      clip_hole_diameter=hole_d)
     d = dims(cfg)
     m = build_half(cfg, "b")
     r = d.R - d.rim_width / 2
-    assert d.R - (r + CLIP_HOLE_D / 2) >= 1.5  # inside the rim, clear of the edge
-    assert (r - CLIP_HOLE_D / 2) - d.rim_r >= 1.5  # and clear of the rim's inner edge
+    assert d.R - (r + hole_d / 2) >= 1.5 - 1e-9  # inside the rim, clear of the edge
+    assert (r - hole_d / 2) - d.rim_r >= 1.5 - 1e-9  # and clear of the rim's inner edge
     pairs = clip_hole_centres(cfg, d)
     assert len(pairs) == 4
     for i, pair in enumerate(pairs):
@@ -185,13 +190,15 @@ def test_clip_holes_through(lightweight):
         assert math.atan2(mid[1], mid[0]) == pytest.approx(math.atan2(math.sin(a), math.cos(a)))
         for x, y in pair:
             assert math.hypot(x, y) == pytest.approx(r)
-            pin = Manifold.cylinder(d.t, CLIP_HOLE_D / 2 - 0.1, circular_segments=24).translate((x, y, 0))
+            pin = Manifold.cylinder(d.t, hole_d / 2 - 0.1, circular_segments=24).translate((x, y, 0))
             assert (pin ^ m).volume() < 1e-6
 
 
+@pytest.mark.parametrize("hole_d", CLIP_DIAMETERS)
 @pytest.mark.parametrize("lightweight", [False, True])
-def test_clip_holes_come_in_tangential_pairs(lightweight):
-    cfg = SpoolConfig(pattern="none", label=False, gauge=False, clip_holes=4, lightweight=lightweight)
+def test_clip_holes_come_in_tangential_pairs(lightweight, hole_d):
+    cfg = SpoolConfig(pattern="none", label=False, gauge=False, clip_holes=4, lightweight=lightweight,
+                      clip_hole_diameter=hole_d)
     d = dims(cfg)
     m = build_half(cfg, "a")
     r = d.R - d.rim_width / 2
@@ -201,29 +208,29 @@ def test_clip_holes_come_in_tangential_pairs(lightweight):
         mx, my = (x0 + x1) / 2, (y0 + y1) / 2
         assert abs((x1 - x0) * mx + (y1 - y0) * my) < 1e-9
         # the bridge between the two holes is solid, full thickness
-        assert CLIP_PAIR_PITCH - CLIP_HOLE_D == pytest.approx(5.8)
+        assert CLIP_PAIR_PITCH == 8.0 and CLIP_PAIR_PITCH - hole_d >= 5.0  # >= 5 mm bridge
         # probe the middle of the bridge (radius capped to stay inside the rim)
         probe = (Manifold.cylinder(d.t, 1.5, circular_segments=24)
                  .translate((mx, my, 0)))
         assert (probe - m).volume() < 1e-6
         # and so is the whole strip from one hole's edge to the other's
-        strip = (Manifold.cube((CLIP_PAIR_PITCH - CLIP_HOLE_D - 0.2, 2.0, d.t), center=True)
+        strip = (Manifold.cube((CLIP_PAIR_PITCH - hole_d - 0.2, 2.0, d.t), center=True)
                  .rotate((0, 0, math.degrees(math.atan2(y1 - y0, x1 - x0))))
                  .translate((mx, my, d.t / 2)))
         assert (strip - m).volume() < 1e-6
         assert math.hypot(mx, my) <= r + 1e-9
 
 
-@pytest.mark.parametrize("n", [1, 2, 4, 8])
-def test_clip_hole_count_is_twice_the_pairs(n):
-    base = dict(pattern="none", label=False, gauge=False, lightweight=False)
+@pytest.mark.parametrize("n, hole_d", [(1, 2.6), (2, 2.0), (4, 2.6), (8, 3.0)])
+def test_clip_hole_count_is_twice_the_pairs(n, hole_d):
+    base = dict(pattern="none", label=False, gauge=False, lightweight=False, clip_hole_diameter=hole_d)
     d = dims(SpoolConfig(**base, clip_holes=0))
     removed = build_half(SpoolConfig(**base, clip_holes=0), "b").slice(d.t / 2) - build_half(
         SpoolConfig(**base, clip_holes=n), "b").slice(d.t / 2)
     holes = [p for p in removed.decompose() if p.area() > 1e-3]
     assert len(holes) == 2 * n
     for h in holes:
-        assert h.area() == pytest.approx(math.pi * (CLIP_HOLE_D / 2) ** 2, rel=0.03)
+        assert h.area() == pytest.approx(math.pi * (hole_d / 2) ** 2, rel=0.03)
 
 
 def test_clip_pair_overlapping_a_keepout_is_skipped():
@@ -236,16 +243,17 @@ def test_clip_pair_overlapping_a_keepout_is_skipped():
     assert kept == [pairs[0], pairs[2], pairs[3]]
 
 
+@pytest.mark.parametrize("hole_d", [2.6, 3.0])
 @pytest.mark.parametrize("lightweight", [False, True])
-def test_clip_pairs_clear_the_keepouts(lightweight):
+def test_clip_pairs_clear_the_keepouts(lightweight, hole_d):
     cfg = SpoolConfig(pattern="none", lightweight=lightweight, clip_holes=8, label=True, gauge=True,
-                      text="WWWWWWWWWWWW", tag_pocket=True, tag_diameter=30)
+                      text="WWWWWWWWWWWW", tag_pocket=True, tag_diameter=30, clip_hole_diameter=hole_d)
     d = dims(cfg)
     lay = layout(cfg, d)
     pairs = clip_hole_centres(cfg, d, lay.keepouts)
     assert len(pairs) == 8
     holes = CrossSection.batch_boolean(
-        [CrossSection.circle(CLIP_HOLE_D / 2, 24).translate(c) for p in pairs for c in p], OpType.Add)
+        [CrossSection.circle(hole_d / 2, 24).translate(c) for p in pairs for c in p], OpType.Add)
     assert (holes ^ lay.keepouts).is_empty()
 
 

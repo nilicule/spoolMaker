@@ -26,7 +26,6 @@ from .text import text_outline
 ENGRAVE_DEPTH = 0.6
 LABEL_OUTLINE_W = 0.8
 TAG_DEPTH = 1.0
-CLIP_HOLE_D = 2.2
 CLIP_PAIR_PITCH = 8.0  # centre-to-centre of a clip pair's two holes (~5.8 mm bridge)
 
 TEXT_CAP = 7.0
@@ -196,7 +195,7 @@ def clip_hole_centres(cfg: SpoolConfig, d: Dims, keepouts: CrossSection | None =
         pair = [(r * math.cos(a + s * half), r * math.sin(a + s * half)) for s in (-1, 1)]
         if keepouts is not None and not keepouts.is_empty():
             holes = CrossSection.batch_boolean(
-                [CrossSection.circle(CLIP_HOLE_D / 2, 24).translate(c) for c in pair], OpType.Add)
+                [CrossSection.circle(cfg.clip_hole_diameter / 2, 24).translate(c) for c in pair], OpType.Add)
             if not (holes ^ keepouts).is_empty():
                 continue
         pairs.append(pair)
@@ -207,7 +206,7 @@ def _clip_holes(cfg: SpoolConfig, d: Dims, keepouts: CrossSection) -> CrossSecti
     pairs = clip_hole_centres(cfg, d, keepouts)
     if not pairs:
         return CrossSection()
-    hole = CrossSection.circle(CLIP_HOLE_D / 2, 24)
+    hole = CrossSection.circle(cfg.clip_hole_diameter / 2, 24)
     return CrossSection.batch_boolean([hole.translate(c) for p in pairs for c in p], OpType.Add)
 
 
