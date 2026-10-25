@@ -8,6 +8,8 @@ from manifold3d import Manifold
 
 from spoolmaker.export import mesh_arrays, to_3mf, to_stl
 
+_STL_REC = np.dtype([("n", "<f4", 3), ("v", "<f4", (3, 3)), ("a", "<u2")])
+
 
 def test_stl_size():
     data = to_stl(Manifold.cube((10, 10, 10)))
@@ -43,3 +45,24 @@ def test_3mf_structure():
     assert [o.get("name") for o in root.findall(".//m:object", ns)] == ["a", "b"]
     xs = [i.get("transform").split()[-3] for i in root.findall(".//m:item", ns)]
     assert xs == ["0", "210"]
+
+
+def test_mesh_arrays_matches_stl():
+    from spoolmaker.config import SpoolConfig
+    from spoolmaker.geometry.build import build_half
+
+    m = build_half(SpoolConfig(), "a")
+    _, t = mesh_arrays(m)
+    assert (len(to_stl(m)) - 84) // 50 == len(t)
+
+
+def test_stl_has_no_degenerate_triangles():
+    from spoolmaker.config import SpoolConfig
+    from spoolmaker.geometry.build import build_half
+
+    data = to_stl(build_half(SpoolConfig(), "a"))
+    tv = np.frombuffer(data[84:], dtype=_STL_REC)["v"].astype(np.float64)
+    cross = np.cross(tv[:, 1] - tv[:, 0], tv[:, 2] - tv[:, 0])
+    assert np.all(np.any(cross != 0, axis=1))
+    same = (tv[:, 0] == tv[:, 1]).all(1) | (tv[:, 1] == tv[:, 2]).all(1) | (tv[:, 2] == tv[:, 0]).all(1)
+    assert not same.any()

@@ -8,7 +8,7 @@ import pytest
 from manifold3d import Error
 
 from spoolmaker.config import SpoolConfig
-from spoolmaker.export import mesh_arrays, to_stl
+from spoolmaker.export import to_stl
 from spoolmaker.geometry.build import build_half
 
 CONFIGS = {
@@ -55,26 +55,12 @@ def test_flat_on_bed(half):
 def test_stl_watertight(half):
     _, m = half
     tv = _stl_triangles(to_stl(m))
-    # Weld identical float32 vertices, then count undirected edge usage.
     flat = tv.reshape(-1, 3)
     _, idx = np.unique(flat, axis=0, return_inverse=True)
     tris = idx.reshape(-1, 3)
-    edges = np.concatenate([tris[:, [0, 1]], tris[:, [1, 2]], tris[:, [2, 0]]])
-    # float32 export can weld two near-coincident vertices; the triangles that
-    # collapse to a point/line have zero area and are dropped by slicers.
-    keep = np.ones(len(tris), dtype=bool)
-    for a, b in ((0, 1), (1, 2), (2, 0)):
-        keep &= tris[:, a] != tris[:, b]
-    tris = tris[keep]
     edges = np.concatenate([tris[:, [0, 1]], tris[:, [1, 2]], tris[:, [2, 0]]])
     counts = Counter(map(tuple, np.sort(edges, axis=1)))
     assert set(counts.values()) == {2}
     # Consistent orientation: each directed edge appears exactly once.
     directed = Counter(map(tuple, edges))
     assert max(directed.values()) == 1
-
-
-def test_mesh_arrays_matches_stl(half):
-    _, m = half
-    _, t = mesh_arrays(m)
-    assert len(_stl_triangles(to_stl(m))) == len(t)

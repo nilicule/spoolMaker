@@ -28,10 +28,22 @@ _RELS = (
 
 
 def mesh_arrays(m: Manifold) -> tuple[np.ndarray, np.ndarray]:
+    """Export-ready mesh: vertices welded by float32 position, degenerate triangles dropped."""
     mesh = m.to_mesh()
     verts = np.ascontiguousarray(mesh.vert_properties[:, :3], dtype=np.float32)
-    tris = np.ascontiguousarray(mesh.tri_verts, dtype=np.uint32)
-    return verts, tris
+    tris = np.asarray(mesh.tri_verts, dtype=np.int64)
+    uniq, inverse = np.unique(verts, axis=0, return_inverse=True)
+    tris = inverse.reshape(-1)[tris]
+    keep = (tris[:, 0] != tris[:, 1]) & (tris[:, 1] != tris[:, 2]) & (tris[:, 2] != tris[:, 0])
+    tris = tris[keep]
+    tv = uniq.astype(np.float64)[tris]
+    cross = np.cross(tv[:, 1] - tv[:, 0], tv[:, 2] - tv[:, 0])
+    tris = tris[np.any(cross != 0, axis=1)]
+    used, remap = np.unique(tris, return_inverse=True)
+    return (
+        np.ascontiguousarray(uniq[used], dtype=np.float32),
+        np.ascontiguousarray(remap.reshape(-1, 3), dtype=np.uint32),
+    )
 
 
 def to_stl(m: Manifold) -> bytes:
