@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+.idea/
+*.stl
+*.3mf
+.superpowers/
+.pytest_cache/
+docs/superpowers/
+.claude/
+CLAUDE.md
