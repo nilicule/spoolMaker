@@ -381,7 +381,7 @@ async function update() {
     renderStats(stats);
     if (!stats.valid) return;
     const [a, b] = await Promise.all(["a", "b"].map((h) =>
-      fetch(`/api/half/${h}.stl?${query}`).then((r) => {
+      fetch(`/api/half/${h}.stl?${query}&v=${schema.geometry_version}`).then((r) => {
         if (!r.ok) throw new Error(`half ${h}: HTTP ${r.status}`);
         return r.arrayBuffer();
       })));
@@ -436,6 +436,7 @@ function download(path) {
   const qs = buildQuery();
   qs.delete("color");
   qs.set("download", "1");
+  qs.set("v", schema.geometry_version);
   const a = el("a", { href: `${path}?${qs}`, download: "" });
   document.body.append(a);
   a.click();

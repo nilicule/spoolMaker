@@ -39,7 +39,7 @@ def test_stats_invalid(client):
 def test_stl(client):
     r = client.get("/api/half/a.stl?pattern=spokes")
     assert r.status_code == 200 and r.mimetype == "model/stl" and len(r.data) > 84
-    assert "max-age=3600" in r.headers["Cache-Control"]
+    assert r.headers["Cache-Control"] == "no-cache"
     assert "Content-Disposition" not in r.headers
 
 
@@ -75,7 +75,7 @@ def test_bambu_project(client):
     assert r.status_code == 200 and r.mimetype == "model/3mf"
     assert "attachment" in r.headers["Content-Disposition"]
     assert "spool-p1s.3mf" in r.headers["Content-Disposition"]
-    assert "max-age=3600" in r.headers["Cache-Control"]
+    assert r.headers["Cache-Control"] == "no-cache" and r.headers["ETag"]
     z = zipfile.ZipFile(io.BytesIO(r.data))
     assert '"printer_model": "Bambu Lab P1S"' in z.read("Metadata/project_settings.config").decode()
 
@@ -88,3 +88,35 @@ def test_bambu_project_default_printer(client):
 def test_bambu_project_invalid_422(client):
     r = client.get("/api/spool-bambu.3mf?refill=custom&coil_inner_diameter=58")
     assert r.status_code == 422 and r.json["errors"]
+
+
+def test_schema_geometry_version(client):
+    from spoolmaker.app import GEOMETRY_VERSION, geometry_version
+
+    v = client.get("/api/schema").json["geometry_version"]
+    assert v == GEOMETRY_VERSION == geometry_version() and len(v) == 12
+
+
+def test_stl_etag_and_304(client):
+    r = client.get("/api/half/a.stl?pattern=spokes")
+    etag = r.headers["ETag"]
+    assert r.status_code == 200 and etag.startswith('"') and not etag.startswith('W/')
+    assert r.headers["Cache-Control"] == "no-cache"
+    again = client.get("/api/half/a.stl?pattern=spokes", headers={"If-None-Match": etag})
+    assert again.status_code == 304 and not again.data
+    other = client.get("/api/half/a.stl?pattern=holes", headers={"If-None-Match": etag})
+    assert other.status_code == 200 and other.headers["ETag"] != etag
+
+
+def test_3mf_etag(client):
+    r = client.get("/api/spool.3mf")
+    assert r.headers["Cache-Control"] == "no-cache"
+    assert client.get("/api/spool.3mf", headers={"If-None-Match": r.headers["ETag"]}).status_code == 304
+
+
+def test_app_js_versions_model_urls():
+    from spoolmaker.app import STATIC_DIR
+
+    js = (STATIC_DIR / "app.js").read_text()
+    assert "/api/half/${h}.stl?${query}&v=${schema.geometry_version}" in js
+    assert 'qs.set("v", schema.geometry_version)' in js  # downloads: STL, 3MF, Bambu
