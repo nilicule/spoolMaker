@@ -12,6 +12,7 @@ GRID_MIN_CELL = 13.0
 MIN_WEB = 1.6
 VORONOI_CELL = 16.0
 _RING_SEGS = 128
+WINDOW_CORNER_R = 3.0  # corner radius of "windows" cut-outs
 
 
 def _lerp(a: float, b: float, t: float) -> float:
@@ -159,6 +160,25 @@ def _voronoi(cell, wall, r_in, r_out, seed, density):
     return CrossSection.batch_boolean(out, OpType.Add) if out else CrossSection()
 
 
+def _window_ribs(density: float) -> tuple[int, float]:
+    """(rib count, rib width mm) for the windows pattern."""
+    return round(_lerp(10, 6, density)), _lerp(10.0, 5.0, density)
+
+
+def _windows(r_in, r_out, density, keepouts):
+    """Annulus split into large sector windows by constant-width radial ribs. An extra rib
+    runs through each keep-out so none is left as an island inside a window."""
+    n, rib = _window_ribs(density)
+    ring = CrossSection.circle(r_out, _RING_SEGS) - CrossSection.circle(r_in, _RING_SEGS)
+    bar = CrossSection.square((r_out + 2, rib)).translate((0, -rib / 2))
+    angles = [360.0 * i / n for i in range(n)]
+    for ko in keepouts.decompose():
+        x0, y0, x1, y1 = ko.bounds()
+        angles.append(math.degrees(math.atan2((y0 + y1) / 2, (x0 + x1) / 2)))
+    ribs = CrossSection.batch_boolean([bar.rotate(a) for a in angles], OpType.Add)
+    return ring - ribs
+
+
 _POLY_KINDS = {
     "honeycomb": _honeycomb,
     "isogrid": _isogrid,
@@ -188,7 +208,11 @@ def pattern_cutouts(
         cell = _lerp(22, GRID_MIN_CELL, density)
     else:
         cell = _lerp(22, 9, density)
-    wall = _lerp(3.0, 1.6, density)
+    if kind == "windows":
+        # Ribs are the walls here: keep half a rib width (>= MIN_WEB) from the boundaries.
+        wall = max(MIN_WEB, _window_ribs(density)[1] / 2)
+    else:
+        wall = _lerp(3.0, 1.6, density)
 
     if kind in _POLY_KINDS:
         shapes = _union(_POLY_KINDS[kind](cell, wall, r_in, r_out, seed))
@@ -198,6 +222,8 @@ def pattern_cutouts(
         shapes = _spokes(cell, wall, r_in, r_out, seed, density)
     elif kind == "voronoi":
         shapes = _voronoi(cell, wall, r_in, r_out, seed, density)
+    elif kind == "windows":
+        shapes = _windows(r_in, r_out, density, keepouts)
     else:
         raise ValueError(f"unknown pattern kind: {kind!r}")
     if shapes.is_empty():
@@ -209,5 +235,10 @@ def pattern_cutouts(
     if not keepouts.is_empty():
         region = region - keepouts.offset(wall, JoinType.Round, 2.0, _ARC_SEGS)
     cs = shapes ^ region
+    if kind == "windows":
+        # Round the window corners (morphological opening; only ever removes area).
+        r = WINDOW_CORNER_R
+        cs = cs.offset(-r, JoinType.Round, 2.0, _ARC_SEGS).offset(r, JoinType.Round, 2.0, _ARC_SEGS)
+        cs = cs ^ region  # guard against offset round-off growing past the margins
     parts = [p for p in cs.decompose() if p.area() >= MIN_AREA]
     return CrossSection.batch_boolean(parts, OpType.Add) if parts else CrossSection()

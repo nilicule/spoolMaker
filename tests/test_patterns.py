@@ -3,7 +3,7 @@ from manifold3d import CrossSection
 
 from spoolmaker.geometry.patterns import pattern_cutouts
 
-KINDS = ["honeycomb", "spokes", "voronoi", "holes", "isogrid"]
+KINDS = ["honeycomb", "spokes", "voronoi", "holes", "isogrid", "windows"]
 
 
 @pytest.mark.parametrize("kind", KINDS)
@@ -61,3 +61,43 @@ def test_open_area_monotonic_in_density(kind, with_keepout):
         for d in (0.0, 0.25, 0.5, 0.75, 1.0)
     ]
     assert all(b >= a for a, b in zip(areas, areas[1:])), areas
+
+
+def test_windows_ribs_and_rounded_corners():
+    import math
+
+    from spoolmaker.geometry.patterns import WINDOW_CORNER_R
+
+    for density, n in ((0.0, 10), (1.0, 6)):
+        cs = pattern_cutouts("windows", density, 50, 93, 1, CrossSection())
+        assert len(cs.decompose()) == n  # one window between each pair of ribs
+    # Rib width lerps 10 -> 5 mm: the gap between neighbouring windows along a ring.
+    cs = pattern_cutouts("windows", 1.0, 50, 93, 1, CrossSection())
+    probe = CrossSection.square((1.0, 4.8), center=True).translate((70, 0))  # inside a 5 mm rib
+    assert (cs ^ probe).is_empty()
+    assert not (cs ^ CrossSection.square((1.0, 6.0), center=True).translate((70, 0))).is_empty()
+    # Corners are rounded: next to the rib/outer-margin corner (rib at 60 deg, outer
+    # margin 93 - 2.5) a sharp window would be cut; the rounded one is not, while the
+    # window is cut further along the rib edge.
+    r_edge = 93 - 2.5
+
+    def beside_rib(r):
+        a = math.radians(60) - (2.5 + 0.3) / r
+        return CrossSection.square((0.3, 0.3), center=True).translate((r * math.cos(a), r * math.sin(a)))
+
+    assert (cs ^ beside_rib(r_edge - 0.3)).is_empty()
+    assert not (cs ^ beside_rib(r_edge - 2 * WINDOW_CORNER_R)).is_empty()
+
+
+@pytest.mark.parametrize("density", [0.0, 0.5, 1.0])
+def test_windows_leave_no_islands(density):
+    """A keep-out in the middle of a window (here 30 deg, between ribs at 0 and 60 deg) gets
+    its own rib, so the flange stays one piece."""
+    import math
+
+    a = math.radians(30)
+    ko = CrossSection.square((14, 14), center=True).translate((70 * math.cos(a), 70 * math.sin(a)))
+    cs = pattern_cutouts("windows", density, 50, 93, 1, ko)
+    flange = CrossSection.circle(100, 128) - CrossSection.circle(40, 128) - cs
+    assert len(flange.decompose()) == 1
+    assert (cs ^ ko).is_empty()

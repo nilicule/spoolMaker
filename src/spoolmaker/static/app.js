@@ -10,7 +10,7 @@ const SWATCHES = ["#f28c28", "#e8e4dc", "#2b2b2b", "#3b7dd8", "#4caf50", "#d6455
 
 const GROUPS = ["Refill", "Size", "Pattern", "Personalize", "Extras", "Print"];
 
-// name -> {label, unit, group, help, step}
+// name -> {label, unit, group, help, step, choiceLabels}
 const FIELD_META = {
   refill: { label: "Refill coil", group: "Refill" },
   coil_inner_diameter: { label: "Coil inner diameter", unit: "mm", group: "Refill", step: 0.5 },
@@ -21,7 +21,9 @@ const FIELD_META = {
   bore_diameter: { label: "Bore diameter", unit: "mm", group: "Size", step: 0.5,
     help: "Centre hole that rides on the AMS / holder spindle." },
   flange_thickness: { label: "Flange thickness", unit: "mm", group: "Size", step: 0.1 },
-  pattern: { label: "Flange pattern", group: "Pattern" },
+  pattern: { label: "Flange pattern", group: "Pattern",
+    choiceLabels: { none: "None", honeycomb: "Honeycomb", spokes: "Spokes", voronoi: "Voronoi",
+      holes: "Holes", isogrid: "Isogrid", windows: "Windows (open spokes)" } },
   pattern_density: { label: "Pattern density", group: "Pattern", step: 0.01,
     help: "Higher means more open area and a lighter spool." },
   pattern_seed: { label: "Pattern seed", group: "Pattern", step: 1,
@@ -195,6 +197,7 @@ function makeSelect(name, def, meta) {
   for (const c of def.choices) {
     let text = String(c);
     if (name === "refill" && schema.presets[c]) text = schema.presets[c].name;
+    if (meta.choiceLabels?.[c]) text = meta.choiceLabels[c];
     if (meta.unit) text += ` ${meta.unit}`;
     select.append(el("option", { value: String(c), text }));
   }

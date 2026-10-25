@@ -23,6 +23,8 @@ CONFIGS = {
         clip_holes=8,
     ),
     "custom-coil": SpoolConfig(refill="custom", coil_inner_diameter=70.0, bore_diameter=58.0),
+    "lightweight-windows": SpoolConfig(lightweight=True, pattern="windows", pattern_density=1.0,
+                                       text="PLA", tag_pocket=True),
 }
 
 
@@ -46,11 +48,20 @@ def test_valid_single_solid(half):
 
 
 def test_flat_on_bed(half):
+    from manifold3d import CrossSection
+
+    from spoolmaker.geometry.dims import dims
+
     cfg, m = half
     assert m.bounding_box()[2] == pytest.approx(0.0, abs=1e-6)
-    area = m.slice(0.01).area()
+    footprint = m.slice(0.01)
     disc = math.pi * (cfg.outer_diameter / 2) ** 2
-    assert area > 0.5 * disc
+    # The flange, not a core end, is on the bed (windows at full density open ~60 %).
+    assert footprint.area() > 0.35 * disc
+    # ... out to its edge: the outer 1.5 mm of the rim is on the bed all the way round.
+    d = dims(cfg)
+    edge = CrossSection.circle(d.R - 0.05, d.seg) - CrossSection.circle(d.R - 1.5, d.seg)
+    assert (edge - footprint).area() < 1e-2
 
 
 def test_stl_watertight(half):
@@ -87,9 +98,10 @@ _PLAIN = dict(pattern="none", label=False, gauge=False, clip_holes=0)
 @pytest.mark.parametrize("cfg,z_min", [
     (SpoolConfig(), ENGRAVE_DEPTH + 0.1),
     (SpoolConfig(lightweight=True), ENGRAVE_DEPTH + 0.1),
+    (SpoolConfig(lightweight=True, pattern="windows", pattern_density=1.0), ENGRAVE_DEPTH + 0.1),
     (SpoolConfig(**_PLAIN), 0.2),
     (SpoolConfig(**_PLAIN, lightweight=True), 0.2),
-], ids=["default", "lightweight", "plain", "plain-lightweight"])
+], ids=["default", "lightweight", "lightweight-windows", "plain", "plain-lightweight"])
 def test_support_free(cfg, z_min, h):
     """No downward faces steeper than 45 deg (beyond boolean slivers). Engraved text,
     label outline and gauge ticks on the bed face are short bridges ENGRAVE_DEPTH up,
@@ -99,3 +111,9 @@ def test_support_free(cfg, z_min, h):
 
 def test_default_half_a_volume_target():
     assert build_half(SpoolConfig(), "a").volume() <= 100_000
+
+
+@pytest.mark.parametrize("h", "ab")
+def test_lightweight_windows_volume_target(h):
+    cfg = SpoolConfig(lightweight=True, pattern="windows", pattern_density=1.0)
+    assert build_half(cfg, h).volume() <= 70_000
