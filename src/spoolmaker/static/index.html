@@ -1,3 +1,72 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><title>Spool Maker</title></head>
-<body><h1>Spool Maker</h1><p>The UI is coming.</p></body></html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Spool Maker</title>
+  <meta name="description" content="Design a two-part, twist-lock, AMS-compatible spool for filament refill coils.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="/static/style.css">
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div class="app">
+    <aside class="panel" aria-label="Spool settings">
+      <header class="brand">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <div>
+          <h1>Spool Maker</h1>
+          <p class="tagline">Two-part, twist-lock spools for refill coils. AMS-ready.</p>
+        </div>
+      </header>
+      <form id="controls" class="controls" autocomplete="off" novalidate>
+        <p class="loading-note">Loading settings…</p>
+      </form>
+    </aside>
+
+    <main class="stage">
+      <div class="viewport" id="viewport">
+        <canvas id="canvas" aria-label="3D preview of the spool" role="img"></canvas>
+        <div class="viewer-tools">
+          <label class="pill-toggle">
+            <input type="checkbox" id="exploded">
+            <span>Exploded view</span>
+          </label>
+        </div>
+        <div class="busy" id="busy" role="status" aria-live="polite" hidden>
+          <span class="busy-dot" aria-hidden="true"></span>updating…
+        </div>
+        <div class="viewer-msg" id="viewer-msg" hidden></div>
+      </div>
+
+      <section class="statsbar" aria-label="Spool statistics">
+        <div class="errors" id="errors" role="alert" hidden></div>
+        <dl class="stats" id="stats">
+          <div><dt>Half A</dt><dd id="st-a">—</dd></div>
+          <div><dt>Half B</dt><dd id="st-b">—</dd></div>
+          <div><dt>Total</dt><dd id="st-total">—</dd></div>
+          <div><dt>Overall width</dt><dd id="st-width">—</dd></div>
+        </dl>
+        <p class="notes" id="notes"></p>
+        <div class="actions">
+          <button type="button" id="dl-a" class="btn" disabled>Download half A (STL)</button>
+          <button type="button" id="dl-b" class="btn" disabled>Download half B (STL)</button>
+          <button type="button" id="dl-3mf" class="btn btn-primary" disabled>Download both (3MF)</button>
+          <button type="button" id="share" class="btn btn-ghost">Copy share link</button>
+          <span class="share-status" id="share-status" role="status" aria-live="polite"></span>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script type="module" src="/static/app.js"></script>
+</body>
+</html>

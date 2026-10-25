@@ -12,6 +12,11 @@ def client():
 
 
 def test_index(client): assert client.get("/").status_code == 200
+def test_static_assets(client):
+    for path in ("/static/app.js", "/static/style.css"):
+        assert client.get(path).status_code == 200, path
+
+
 def test_schema(client): assert "pattern" in client.get("/api/schema").json["fields"]
 
 

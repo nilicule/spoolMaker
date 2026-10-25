@@ -46,7 +46,7 @@ def _model_response(data: bytes, mimetype: str, filename: str | None) -> Respons
 
 
 def create_app() -> Flask:
-    app = Flask(__name__, static_folder=None)
+    app = Flask(__name__, static_folder="static", static_url_path="/static")
 
     @app.get("/")
     def index():
