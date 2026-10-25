@@ -48,12 +48,12 @@ class SpoolConfig:
     pattern: str = "honeycomb"
     pattern_density: float = 0.5
     pattern_seed: int = 1
-    lightweight: bool = False
-    label: bool = True
+    lightweight: bool = True
+    label: bool = False
     label_width: float = 60.0
     label_height: float = 18.0
     text: str = ""
-    gauge: bool = True
+    gauge: bool = False
     gauge_material: str = "PLA"
     clip_holes: int = 4
     tag_pocket: bool = False

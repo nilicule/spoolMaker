@@ -14,14 +14,15 @@ from spoolmaker.geometry.features import (
     layout,
 )
 
-PLAIN = dict(pattern="none", label=False, gauge=False, clip_holes=0)
+PLAIN = dict(pattern="none", label=False, gauge=False, clip_holes=0, lightweight=False)
 
 
 # --- brief tests -----------------------------------------------------------
 
 @pytest.mark.parametrize("lightweight", [False, True])
 def test_rim_ring_intact(lightweight):
-    cfg = SpoolConfig(pattern="voronoi", pattern_density=1.0, clip_holes=8, lightweight=lightweight)
+    cfg = SpoolConfig(pattern="voronoi", pattern_density=1.0, clip_holes=8, lightweight=lightweight,
+                      label=True, gauge=True)
     m = build_half(cfg, "a")
     d = dims(cfg)
     assert d.rim_width == (RIM_WIDTH_LIGHT if lightweight else RIM_WIDTH)
@@ -39,7 +40,7 @@ def test_lightweight_narrows_rim_and_hub_ring():
     from spoolmaker.geometry.dims import HUB_RING, HUB_RING_LIGHT
     from spoolmaker.geometry.features import web_thickness
 
-    heavy, light = dims(SpoolConfig()), dims(SpoolConfig(lightweight=True))
+    heavy, light = dims(SpoolConfig(lightweight=False)), dims(SpoolConfig(lightweight=True))
     assert heavy.R - heavy.rim_r == RIM_WIDTH and light.R - light.rim_r == RIM_WIDTH_LIGHT
     assert heavy.hub_ring_r - heavy.r_core_out == HUB_RING
     assert light.hub_ring_r - light.r_core_out == HUB_RING_LIGHT
@@ -48,21 +49,24 @@ def test_lightweight_narrows_rim_and_hub_ring():
 
 
 def test_width_unchanged_by_features():
-    plain = build_half(SpoolConfig(pattern="none", label=False, gauge=False, clip_holes=0), "a").bounding_box()
-    full = build_half(SpoolConfig(text="PETG 240", tag_pocket=True), "a").bounding_box()
+    plain = build_half(SpoolConfig(**PLAIN), "a").bounding_box()
+    full = build_half(SpoolConfig(text="PETG 240", tag_pocket=True, label=True, gauge=True, lightweight=False), "a").bounding_box()
     assert full[5] - full[2] == pytest.approx(plain[5] - plain[2], abs=1e-6)
 
 
 def test_lightweight_is_lighter():
-    assert build_half(SpoolConfig(lightweight=True), "a").volume() < build_half(SpoolConfig(), "a").volume() * 0.9
+    heavy = build_half(SpoolConfig(lightweight=False, label=True, gauge=True), "a").volume()
+    assert build_half(SpoolConfig(lightweight=True, label=True, gauge=True), "a").volume() < heavy * 0.9
 
 
 def test_pattern_lighter_than_none():
-    assert build_half(SpoolConfig(pattern="honeycomb"), "b").volume() < build_half(SpoolConfig(pattern="none"), "b").volume()
+    for lw in (False, True):
+        assert (build_half(SpoolConfig(pattern="honeycomb", lightweight=lw), "b").volume()
+                < build_half(SpoolConfig(pattern="none", lightweight=lw), "b").volume())
 
 
 def test_keepouts_stay_solid():
-    cfg = SpoolConfig(pattern="holes", pattern_density=1.0)
+    cfg = SpoolConfig(pattern="holes", pattern_density=1.0, label=True, gauge=True, lightweight=False)
     lay = layout(cfg, dims(cfg))
     m = build_half(cfg, "a")
     label_prism = lay.label.offset(-1.0, JoinType.Miter).extrude(dims(cfg).t).translate((0, 0, 0))
@@ -70,7 +74,7 @@ def test_keepouts_stay_solid():
 
 
 def test_all_features_max_density_valid():
-    cfg = SpoolConfig(pattern="honeycomb", pattern_density=1.0, lightweight=True, text="WWWWWWWWWWWWWWWWWWWWWWWW",
+    cfg = SpoolConfig(pattern="honeycomb", pattern_density=1.0, lightweight=True, label=True, gauge=True, text="WWWWWWWWWWWWWWWWWWWWWWWW",
                       tag_pocket=True, tag_diameter=30, clip_holes=8, gauge_material="ABS")
     for h in "ab":
         m = build_half(cfg, h)
@@ -78,7 +82,7 @@ def test_all_features_max_density_valid():
 
 
 def test_lock_still_works_with_lightweight():
-    a, b = assembled(SpoolConfig(lightweight=True))
+    a, b = assembled(SpoolConfig(lightweight=True, label=True, gauge=True))
     assert (a ^ b).volume() < 1e-3
 
 
@@ -137,7 +141,7 @@ def test_text_scaled_to_fit_chord():
 
 
 def test_label_at_90_text_at_270_gauge_at_0_tag_at_180():
-    cfg = SpoolConfig(text="PLA", tag_pocket=True)
+    cfg = SpoolConfig(text="PLA", tag_pocket=True, label=True, gauge=True, lightweight=False)
     lay = layout(cfg, dims(cfg))
     def centre(cs):
         x0, y0, x1, y1 = cs.bounds()
@@ -155,7 +159,7 @@ def test_label_at_90_text_at_270_gauge_at_0_tag_at_180():
 def test_gauge_ticks_engraved_at_tick_radii():
     from spoolmaker.filament import gauge_ticks
 
-    cfg = SpoolConfig(pattern="none", label=False, clip_holes=0)
+    cfg = SpoolConfig(pattern="none", label=False, clip_holes=0, lightweight=False, gauge=True)
     removed = _slice_removed(SpoolConfig(**PLAIN), cfg, ENGRAVE_DEPTH / 2)
     for _, r in gauge_ticks(cfg):
         probe = CrossSection.square((0.4, 0.4), center=True).translate((r, 2.0))
@@ -189,22 +193,24 @@ def test_tag_pocket_on_inner_face():
 
 
 def test_tag_fit_validation():
-    ok = SpoolConfig(tag_pocket=True, tag_diameter=30)
+    ok = SpoolConfig(tag_pocket=True, tag_diameter=30, lightweight=False, label=True, gauge=True)
     assert not any("tag" in e.lower() for e in validate(ok))
-    bad = SpoolConfig(tag_pocket=True, tag_diameter=30, refill="custom", coil_inner_diameter=150.0)
+    bad = SpoolConfig(tag_pocket=True, tag_diameter=30, refill="custom", coil_inner_diameter=150.0,
+                      lightweight=False, label=True, gauge=True)
     assert any("tag" in e.lower() for e in validate(bad))
     assert not any("tag" in e.lower() for e in validate(
-        SpoolConfig(tag_pocket=False, refill="custom", coil_inner_diameter=150.0)))
+        SpoolConfig(tag_pocket=False, refill="custom", coil_inner_diameter=150.0,
+                    lightweight=False, label=True, gauge=True)))
 
 
 def test_lightweight_web_thinned_but_keepouts_full():
-    cfg = SpoolConfig(pattern="none", lightweight=True, clip_holes=0)
+    cfg = SpoolConfig(pattern="none", lightweight=True, clip_holes=0, label=True, gauge=True)
     d = dims(cfg)
     lay = layout(cfg, d)
     m = build_half(cfg, "b")
     web_t = max(1.6, 0.5 * d.t)
     # outer face flat: full footprint at the bottom
-    assert m.slice(0.01).area() == pytest.approx(build_half(SpoolConfig(pattern="none", clip_holes=0), "b").slice(0.01).area(), rel=1e-3)
+    assert m.slice(0.01).area() == pytest.approx(build_half(SpoolConfig(pattern="none", clip_holes=0, lightweight=False, label=True, gauge=True), "b").slice(0.01).area(), rel=1e-3)
     upper = m.slice((web_t + d.t) / 2)
     # keep-outs remain at full thickness
     for ko in (lay.label, lay.gauge):
@@ -220,7 +226,8 @@ def test_lightweight_web_thinned_but_keepouts_full():
 
 def test_lightweight_engravings_do_not_break_through():
     cfg = SpoolConfig(pattern="voronoi", pattern_density=1.0, lightweight=True, text="PETG",
-                      flange_thickness=2.0, coil_width=60.0, clip_holes=0, tag_pocket=True)
+                      flange_thickness=2.0, coil_width=60.0, clip_holes=0, tag_pocket=True,
+                      label=True, gauge=True)
     d = dims(cfg)
     lay = layout(cfg, d)
     m = build_half(cfg, "a")
@@ -238,7 +245,7 @@ def test_cores_are_thin_tubes(half, lightweight):
     from spoolmaker.geometry.dims import COLLAR_DEPTH
     from spoolmaker.geometry.lock import core_height_b
 
-    cfg = SpoolConfig(**PLAIN, lightweight=lightweight)
+    cfg = SpoolConfig(**{**PLAIN, "lightweight": lightweight})
     d = dims(cfg)
     m = build_half(cfg, half)
     r_in = d.r_tube_a_in if half == "a" else d.r_tube_b_in
@@ -282,7 +289,7 @@ def test_b_tube_top_is_full_annulus():
 
 def test_build_half_performance():
     cfg = SpoolConfig(pattern="voronoi", pattern_density=1.0, lightweight=True, text="WWWWWWWWWWWW",
-                      tag_pocket=True, clip_holes=8)
+                      tag_pocket=True, clip_holes=8, label=True, gauge=True)
     build_half(cfg, "a").to_mesh()  # warm caches (font, scipy import)
     t0 = time.perf_counter()
     build_half(cfg, "a").to_mesh()  # manifold3d is lazy; force evaluation

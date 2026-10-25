@@ -14,7 +14,9 @@ from spoolmaker.geometry.features import ENGRAVE_DEPTH
 
 CONFIGS = {
     "default": SpoolConfig(),
+    "classic": SpoolConfig(lightweight=False, label=True, gauge=True),  # the defaults before lightweight
     "everything": SpoolConfig(
+        label=True, gauge=True,
         pattern="voronoi",
         pattern_density=1.0,
         lightweight=True,
@@ -22,12 +24,13 @@ CONFIGS = {
         tag_pocket=True,
         clip_holes=8,
     ),
-    "custom-coil": SpoolConfig(refill="custom", coil_inner_diameter=70.8, bore_diameter=58.0),
+    "custom-coil": SpoolConfig(refill="custom", coil_inner_diameter=70.8, bore_diameter=58.0,
+                               lightweight=False, label=True, gauge=True),
     "id70-lightweight-windows": SpoolConfig(refill="custom", coil_inner_diameter=70.0,
                                             lightweight=True, pattern="windows",
-                                            pattern_density=1.0),
+                                            pattern_density=1.0, label=True, gauge=True),
     "lightweight-windows": SpoolConfig(lightweight=True, pattern="windows", pattern_density=1.0,
-                                       text="PLA", tag_pocket=True),
+                                       text="PLA", tag_pocket=True, label=True, gauge=True),
 }
 
 
@@ -102,17 +105,19 @@ def _overhang_area(m, z_min: float) -> float:
     return float(norm[sel].sum() / 2)
 
 
-_PLAIN = dict(pattern="none", label=False, gauge=False, clip_holes=0)
+_PLAIN = dict(pattern="none", label=False, gauge=False, clip_holes=0, lightweight=False)
 
 
 @pytest.mark.parametrize("h", "ab")
 @pytest.mark.parametrize("cfg,z_min", [
     (SpoolConfig(), ENGRAVE_DEPTH + 0.1),
-    (SpoolConfig(lightweight=True), ENGRAVE_DEPTH + 0.1),
-    (SpoolConfig(lightweight=True, pattern="windows", pattern_density=1.0), ENGRAVE_DEPTH + 0.1),
+    (SpoolConfig(lightweight=False, label=True, gauge=True), ENGRAVE_DEPTH + 0.1),
+    (SpoolConfig(lightweight=True, label=True, gauge=True), ENGRAVE_DEPTH + 0.1),
+    (SpoolConfig(lightweight=True, label=True, gauge=True, pattern="windows", pattern_density=1.0),
+     ENGRAVE_DEPTH + 0.1),
     (SpoolConfig(**_PLAIN), 0.2),
-    (SpoolConfig(**_PLAIN, lightweight=True), 0.2),
-], ids=["default", "lightweight", "lightweight-windows", "plain", "plain-lightweight"])
+    (SpoolConfig(**{**_PLAIN, "lightweight": True}), 0.2),
+], ids=["default", "classic", "lightweight", "lightweight-windows", "plain", "plain-lightweight"])
 def test_support_free(cfg, z_min, h):
     """No downward faces steeper than 45 deg (beyond boolean slivers). Engraved text,
     label outline and gauge ticks on the bed face are short bridges ENGRAVE_DEPTH up,
@@ -120,8 +125,15 @@ def test_support_free(cfg, z_min, h):
     assert _overhang_area(build_half(cfg, h), z_min) < 5.0
 
 
-def test_default_half_a_volume_target():
-    assert build_half(SpoolConfig(), "a").volume() <= 100_000
+def test_classic_half_a_volume_target():
+    # the full-weight design that was the default before lightweight mode became the default
+    assert build_half(SpoolConfig(lightweight=False, label=True, gauge=True), "a").volume() <= 100_000
+
+
+@pytest.mark.parametrize("h", "ab")
+def test_default_volume_target(h):
+    # the default (lightweight, no label) spool
+    assert build_half(SpoolConfig(), h).volume() <= 70_000
 
 
 @pytest.mark.parametrize("h", "ab")

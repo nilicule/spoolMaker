@@ -105,3 +105,16 @@ def test_bambu_printer_choice():
     s = config_schema()
     assert s["fields"]["bambu_printer"]["choices"] == list(PRINTERS)
     assert s["bambu_printers"]["a1"]["name"] == "Bambu Lab A1"
+
+
+def test_defaults_lightweight_no_label_no_gauge():
+    d = SpoolConfig()
+    assert d.pattern == "honeycomb" and d.lightweight and not d.label and not d.gauge
+    # links from before the change still load as written
+    old = from_query({"lightweight": "1", "label": "0", "gauge": "1"})
+    assert old.lightweight and not old.label and old.gauge
+    assert to_query(old) == {"gauge": "1"}
+    classic = from_query({"lightweight": "0", "label": "1", "gauge": "1"})
+    assert not classic.lightweight and classic.label and classic.gauge
+    assert from_query(to_query(classic)) == classic
+    assert to_query(SpoolConfig()) == {}

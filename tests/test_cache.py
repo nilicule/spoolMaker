@@ -4,7 +4,7 @@ from spoolmaker import cache
 from spoolmaker.config import SpoolConfig
 from spoolmaker.stats import stats
 
-CFG = SpoolConfig(pattern="none", label=False, gauge=False, clip_holes=0)
+CFG = SpoolConfig(pattern="none", label=False, gauge=False, clip_holes=0, lightweight=False)
 
 
 def test_print_material_does_not_rebuild_geometry():

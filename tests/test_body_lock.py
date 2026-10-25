@@ -4,7 +4,7 @@ from manifold3d import Error, Manifold
 from spoolmaker.config import SpoolConfig
 from spoolmaker.geometry.build import assembled, build_half
 
-_PLAIN = dict(pattern="none", label=False, gauge=False, clip_holes=0)
+_PLAIN = dict(pattern="none", label=False, gauge=False, clip_holes=0, lightweight=False)
 CFG = SpoolConfig(**_PLAIN)
 # Tightest accepted lock: minimum coil ID for the largest bore with default clearances.
 TIGHT = SpoolConfig(**_PLAIN, refill="custom", coil_inner_diameter=70.8, bore_diameter=58.0)
@@ -56,7 +56,7 @@ def _b_at(cfg, twist, dz=0.0):
 def test_detent_engages_for_all_clearances(clearance):
     from spoolmaker.geometry.lock import TWIST_DEG
 
-    cfg = SpoolConfig(pattern="none", label=False, gauge=False, clip_holes=0, lock_clearance=clearance)
+    cfg = SpoolConfig(**_PLAIN, lock_clearance=clearance)
     a = build_half(cfg, "a")
     assert (a ^ _b_at(cfg, 20)).volume() > 0.1
     assert (a ^ _b_at(cfg, TWIST_DEG)).volume() == pytest.approx(0, abs=1e-6)
@@ -65,7 +65,7 @@ def test_detent_engages_for_all_clearances(clearance):
 @pytest.mark.parametrize("clearance", [0.15, 0.6])
 @pytest.mark.parametrize("dz", [0, 5, 9.5])  # engagement is SOCKET_DEPTH = 10 mm
 def test_insertion_path_clear_at_zero_twist(clearance, dz):
-    cfg = SpoolConfig(pattern="none", label=False, gauge=False, clip_holes=0, lock_clearance=clearance)
+    cfg = SpoolConfig(**_PLAIN, lock_clearance=clearance)
     a = build_half(cfg, "a")
     assert (a ^ _b_at(cfg, 0, dz)).volume() == pytest.approx(0, abs=1e-6)
 
@@ -113,8 +113,11 @@ def test_only_core_tops_seat_the_halves():
     assert (b ^ below).volume() == pytest.approx(0, abs=1e-6)
 
 
-@pytest.mark.parametrize("cfg", [CFG, SpoolConfig(), SpoolConfig(coil_width=40.0, flange_thickness=5.0),
-                                 SpoolConfig(coil_width=60.0, flange_thickness=2.0, lightweight=True)])
+@pytest.mark.parametrize("cfg", [CFG, SpoolConfig(), SpoolConfig(lightweight=False, label=True, gauge=True),
+                                 SpoolConfig(coil_width=40.0, flange_thickness=5.0, lightweight=False,
+                                             label=True, gauge=True),
+                                 SpoolConfig(coil_width=60.0, flange_thickness=2.0, lightweight=True,
+                                             label=True, gauge=True)])
 def test_halves_roughly_equal_height(cfg):
     from spoolmaker.geometry.lock import SOCKET_DEPTH
 
