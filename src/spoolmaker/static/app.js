@@ -5,6 +5,9 @@ import { STLLoader } from "three/addons/loaders/STLLoader.js";
 
 const DEBOUNCE_MS = 250;
 const EXPLODE_MM = 60;
+const EXPLODE_MS = 600;       // exploded-view animation length
+const UNLOCK_SPLIT = 0.4;     // share of it spent un-twisting B before the lift
+const UNLOCK_LIFT_MM = 4;     // how far B rises while it un-twists
 const DEFAULT_COLOR = "#f2f2f2";
 const SWATCHES = ["#f2f2f2", "#f28c28", "#2b2b2b", "#3b7dd8", "#4caf50", "#d64550", "#9b6dd6"];
 
@@ -45,9 +48,9 @@ const FIELD_META = {
   lock_clearance: { label: "Twist-lock clearance", unit: "mm", group: "Print", step: 0.01,
     help: "Loosen if the halves are hard to twist together." },
   print_material: { label: "Print material", group: "Print",
-    help: "Used for the weight estimate." },
+    help: "Used for the weight estimates." },
   bambu_printer: { label: "Bambu printer", group: "Print",
-    help: "Used for the Open in Bambu Studio project (plates and default settings)." },
+    help: "Used for the filament estimate and the Open in Bambu Studio project." },
 };
 
 // ---------- state ----------
@@ -406,17 +409,21 @@ function renderStats(s) {
   if (s.valid) {
     errBox.hidden = true;
     errBox.replaceChildren();
-    $("st-a").textContent = fmtG(s.weight_g.a);
-    $("st-b").textContent = fmtG(s.weight_g.b);
-    $("st-total").textContent = fmtG(s.weight_g.total);
+    for (const h of ["a", "b", "total"]) {
+      $(`st-${h}`).textContent = fmtG(s.estimate_g[h]);
+      const solid = $(`st-${h}-solid`);
+      solid.textContent = `solid: ${fmtG(s.weight_g[h])}`;
+      solid.title = s.weight_note;
+    }
     $("st-width").textContent = `${s.overall_width.toFixed(1)} mm`;
-    const notes = [s.weight_note, s.bed_note].filter(Boolean);
-    $("notes").textContent = notes.join(" · ");
+    $("estimate-note").textContent = s.estimate_note;
+    $("notes").textContent = [s.bed_note, "solid = 100% infill"].filter(Boolean).join(" · ");
   } else {
     const list = el("ul");
     for (const e of s.errors) list.append(el("li", { text: e }));
     errBox.replaceChildren(el("strong", { text: "This spool can’t be built yet" }), list);
     errBox.hidden = false;
+    $("estimate-note").textContent = "";
     $("notes").textContent = "Preview shows the last valid design.";
   }
   $("stats").classList.toggle("is-stale", !s.valid);
@@ -501,12 +508,38 @@ function replaceMesh(old, geometry) {
   return mesh;
 }
 
+// Exploded view: explodeT runs 0 (assembled, locked) .. 1 (exploded) toward explodeTarget.
+let explodeT = 0;
+let explodeTarget = 0;
+const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+const easeInOut = (x) => (x < 0.5 ? 2 * x * x : 1 - (-2 * x + 2) ** 2 / 2);
+
+function setExploded(on) {
+  explodeTarget = on ? 1 : 0;
+  if (reducedMotion.matches) explodeT = explodeTarget;
+  placeB();
+}
+
+function stepExplode(dtMs) {
+  if (explodeT === explodeTarget) return;
+  const step = dtMs / EXPLODE_MS;
+  explodeT = explodeT < explodeTarget ? Math.min(explodeTarget, explodeT + step)
+    : Math.max(explodeTarget, explodeT - step);
+  placeB();
+}
+
 function placeB() {
   if (!meshB) return;
   // Same pose as geometry assembled(): flip about X, then twist about Z into the locked position.
+  // Exploding mirrors the real unlock: un-twist while lifting a little, then lift clear;
+  // collapsing runs the same path backwards.
   const twist = THREE.MathUtils.degToRad(schema.limits.twist_deg);
-  meshB.rotation.set(Math.PI, 0, twist, "ZYX");
-  meshB.position.set(0, 0, overallWidth + ($("exploded").checked ? EXPLODE_MM : 0));
+  const turn = easeInOut(Math.min(1, explodeT / UNLOCK_SPLIT));
+  const rise = easeInOut(Math.max(0, (explodeT - UNLOCK_SPLIT) / (1 - UNLOCK_SPLIT)));
+  meshB.rotation.set(Math.PI, 0, twist * (1 - turn), "ZYX");
+  meshB.position.set(0, 0,
+    overallWidth + UNLOCK_LIFT_MM * turn + (EXPLODE_MM - UNLOCK_LIFT_MM) * rise);
 }
 
 function showMeshes(bufA, bufB, width) {
@@ -573,7 +606,11 @@ function resize() {
   }
 }
 
-function loop() {
+let lastFrame = null;
+
+function loop(now) {
+  stepExplode(lastFrame === null ? 0 : Math.min(now - lastFrame, 100));
+  lastFrame = now;
   resize();
   orbit.update();
   renderer.render(scene, camera);
@@ -589,7 +626,8 @@ async function boot() {
   $("dl-bambu").addEventListener("click", () => download("/api/spool-bambu.3mf"));
   $("share").addEventListener("click", copyShare);
   $("reset").addEventListener("click", resetDefaults);
-  $("exploded").addEventListener("change", placeB);
+  explodeT = explodeTarget = $("exploded").checked ? 1 : 0;   // restored checkbox state
+  $("exploded").addEventListener("change", (e) => setExploded(e.target.checked));
   requestAnimationFrame(loop);
 
   try {

@@ -54,11 +54,12 @@
       <section class="statsbar" aria-label="Spool statistics">
         <div class="errors" id="errors" role="alert" hidden></div>
         <dl class="stats" id="stats">
-          <div><dt>Half A</dt><dd id="st-a">—</dd></div>
-          <div><dt>Half B</dt><dd id="st-b">—</dd></div>
-          <div><dt>Total</dt><dd id="st-total">—</dd></div>
+          <div><dt>Half A</dt><dd id="st-a">—</dd><dd class="stat-sub" id="st-a-solid"></dd></div>
+          <div><dt>Half B</dt><dd id="st-b">—</dd><dd class="stat-sub" id="st-b-solid"></dd></div>
+          <div><dt>Total</dt><dd id="st-total">—</dd><dd class="stat-sub" id="st-total-solid"></dd></div>
           <div><dt>Overall width</dt><dd id="st-width">—</dd></div>
         </dl>
+        <p class="estimate-note" id="estimate-note"></p>
         <p class="notes" id="notes"></p>
         <div class="actions">
           <button type="button" id="dl-a" class="btn" disabled>Download half A (STL)</button>
