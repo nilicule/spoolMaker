@@ -31,6 +31,9 @@
       <form id="controls" class="controls" autocomplete="off" novalidate>
         <p class="loading-note">Loading settings…</p>
       </form>
+      <footer class="credit">
+        built with <span class="heart">♥</span> <a href="https://github.com/nilicule/spoolMaker" target="_blank" rel="noopener">source on GitHub</a>
+      </footer>
     </aside>
 
     <main class="stage">
@@ -60,11 +63,15 @@
         <div class="actions">
           <button type="button" id="dl-a" class="btn" disabled>Download half A (STL)</button>
           <button type="button" id="dl-b" class="btn" disabled>Download half B (STL)</button>
-          <button type="button" id="dl-3mf" class="btn btn-primary" disabled>Download both (3MF)</button>
+          <button type="button" id="dl-bambu" class="btn btn-primary" disabled>Open in Bambu Studio</button>
+          <button type="button" id="dl-3mf" class="btn" disabled>Download both (3MF)</button>
           <button type="button" id="share" class="btn btn-ghost">Copy share link</button>
           <button type="button" id="reset" class="btn btn-ghost">Reset to defaults</button>
           <span class="share-status" id="share-status" role="status" aria-live="polite"></span>
         </div>
+        <p class="actions-hint">Downloads a Bambu Studio project with each half on its own plate — open
+          the file to launch Bambu Studio. It uses <span id="bambu-printer">the Bambu Lab A1</span>’s
+          standard 0.20 mm profile with PLA.</p>
       </section>
     </main>
   </div>

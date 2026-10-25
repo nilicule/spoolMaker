@@ -93,3 +93,15 @@ def test_schema_shape():
 def test_from_query_nonfinite_ints_fall_back():
     cfg = from_query({"clip_holes": "inf", "pattern_seed": "1e999", "coil_width": "-inf"})
     assert cfg.clip_holes == 4 and cfg.pattern_seed == 1 and cfg.coil_width == 60.0
+
+
+def test_bambu_printer_choice():
+    from spoolmaker.bambu import DEFAULT_PRINTER, PRINTERS
+
+    assert SpoolConfig().bambu_printer == DEFAULT_PRINTER == "a1"
+    assert from_query({"bambu_printer": "p1s"}).bambu_printer == "p1s"
+    assert from_query({"bambu_printer": "garbage"}).bambu_printer == DEFAULT_PRINTER
+    assert to_query(from_query({"bambu_printer": "p1s"})) == {"bambu_printer": "p1s"}
+    s = config_schema()
+    assert s["fields"]["bambu_printer"]["choices"] == list(PRINTERS)
+    assert s["bambu_printers"]["a1"]["name"] == "Bambu Lab A1"

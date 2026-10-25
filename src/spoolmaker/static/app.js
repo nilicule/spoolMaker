@@ -5,8 +5,8 @@ import { STLLoader } from "three/addons/loaders/STLLoader.js";
 
 const DEBOUNCE_MS = 250;
 const EXPLODE_MM = 60;
-const DEFAULT_COLOR = "#f28c28";
-const SWATCHES = ["#f28c28", "#e8e4dc", "#2b2b2b", "#3b7dd8", "#4caf50", "#d64550", "#9b6dd6"];
+const DEFAULT_COLOR = "#f2f2f2";
+const SWATCHES = ["#f2f2f2", "#f28c28", "#2b2b2b", "#3b7dd8", "#4caf50", "#d64550", "#9b6dd6"];
 
 const GROUPS = ["Refill", "Size", "Pattern", "Personalize", "Extras", "Print"];
 
@@ -46,6 +46,8 @@ const FIELD_META = {
     help: "Loosen if the halves are hard to twist together." },
   print_material: { label: "Print material", group: "Print",
     help: "Used for the weight estimate." },
+  bambu_printer: { label: "Bambu printer", group: "Print",
+    help: "Used for the Open in Bambu Studio project (plates and default settings)." },
 };
 
 // ---------- state ----------
@@ -197,6 +199,7 @@ function makeSelect(name, def, meta) {
   for (const c of def.choices) {
     let text = String(c);
     if (name === "refill" && schema.presets[c]) text = schema.presets[c].name;
+    if (name === "bambu_printer" && schema.bambu_printers?.[c]) text = schema.bambu_printers[c].name;
     if (meta.choiceLabels?.[c]) text = meta.choiceLabels[c];
     if (meta.unit) text += ` ${meta.unit}`;
     select.append(el("option", { value: String(c), text }));
@@ -316,10 +319,15 @@ function syncControls() {
   controls.label_height?.setDisabled(!model.label);
   controls.gauge_material?.setDisabled(!model.gauge);
   controls.tag_diameter?.setDisabled(!model.tag_pocket);
+  // the seed only reshuffles voronoi, so hide it for every other pattern
+  const seed = document.querySelector('.field[data-field="pattern_seed"]');
+  if (seed) seed.hidden = model.pattern !== "voronoi";
+  const printer = schema.bambu_printers?.[model.bambu_printer];
+  $("bambu-printer").textContent = printer ? printer.name : "the selected printer";
 }
 
 function setDownloads(enabled) {
-  for (const b of ["dl-a", "dl-b", "dl-3mf"]) $(b).disabled = !enabled;
+  for (const b of ["dl-a", "dl-b", "dl-3mf", "dl-bambu"]) $(b).disabled = !enabled;
 }
 
 function commit(name, value) {
@@ -547,7 +555,12 @@ function applyColor() {
   material.color.set(model.color);
   const root = document.documentElement.style;
   root.setProperty("--accent", model.color);
-  root.setProperty("--accent-ink", luminance(model.color) > 0.3 ? "#1f1408" : "#ffffff");
+  const lum = luminance(model.color);
+  root.setProperty("--accent-ink", lum > 0.3 ? "#1f1408" : "#ffffff");
+  // Text and small marks in the accent colour need contrast against the panel: pull very
+  // light colours (e.g. the default white) toward the ink colour.
+  root.setProperty("--accent-text",
+    lum > 0.6 ? `color-mix(in srgb, ${model.color} 35%, var(--ink))` : model.color);
 }
 
 function resize() {
@@ -573,6 +586,7 @@ async function boot() {
   $("dl-a").addEventListener("click", () => download("/api/half/a.stl"));
   $("dl-b").addEventListener("click", () => download("/api/half/b.stl"));
   $("dl-3mf").addEventListener("click", () => download("/api/spool.3mf"));
+  $("dl-bambu").addEventListener("click", () => download("/api/spool-bambu.3mf"));
   $("share").addEventListener("click", copyShare);
   $("reset").addEventListener("click", resetDefaults);
   $("exploded").addEventListener("change", placeB);

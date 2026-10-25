@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, fields
 
+from .bambu import DEFAULT_PRINTER, PRINTERS
+
 OD_RANGE = (197.0, 201.0)
 WIDTH_RANGE = (50.0, 68.0)
 BORE_RANGE = (53.0, 58.0)
@@ -58,6 +60,7 @@ class SpoolConfig:
     tag_diameter: int = 25
     lock_clearance: float = 0.3
     print_material: str = "PLA"
+    bambu_printer: str = DEFAULT_PRINTER
 
     @property
     def inner_width(self) -> float:
@@ -89,6 +92,7 @@ CHOICES: dict[str, tuple] = {
     "gauge_material": MATERIALS,
     "print_material": MATERIALS,
     "tag_diameter": TAG_SIZES,
+    "bambu_printer": tuple(PRINTERS),
 }
 
 _DEFAULTS = SpoolConfig()
@@ -221,6 +225,8 @@ def config_schema() -> dict:
                 "verified": p.verified}
             for k, p in PRESETS.items()
         },
+        "bambu_printers": {k: {"name": p.name, "process": p.process, "filament": p.filament}
+                           for k, p in PRINTERS.items()},
         "limits": {"od": list(OD_RANGE), "width": list(WIDTH_RANGE), "bore": list(BORE_RANGE),
                    "rim_width": RIM_WIDTH, "rim_width_light": RIM_WIDTH_LIGHT,
                    "max_text": MAX_TEXT,

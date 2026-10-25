@@ -62,3 +62,23 @@ def test_invalid_config_returns_422(client):
 
 
 def test_bad_half_404(client): assert client.get("/api/half/c.stl").status_code == 404
+
+
+def test_bambu_project(client):
+    r = client.get("/api/spool-bambu.3mf?bambu_printer=p1s")
+    assert r.status_code == 200 and r.mimetype == "model/3mf"
+    assert "attachment" in r.headers["Content-Disposition"]
+    assert "spool-p1s.3mf" in r.headers["Content-Disposition"]
+    assert "max-age=3600" in r.headers["Cache-Control"]
+    z = zipfile.ZipFile(io.BytesIO(r.data))
+    assert '"printer_model": "Bambu Lab P1S"' in z.read("Metadata/project_settings.config").decode()
+
+
+def test_bambu_project_default_printer(client):
+    r = client.get("/api/spool-bambu.3mf?bambu_printer=garbage")
+    assert r.status_code == 200 and "spool-a1.3mf" in r.headers["Content-Disposition"]
+
+
+def test_bambu_project_invalid_422(client):
+    r = client.get("/api/spool-bambu.3mf?refill=custom&coil_inner_diameter=58")
+    assert r.status_code == 422 and r.json["errors"]

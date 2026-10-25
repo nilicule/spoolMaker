@@ -28,3 +28,13 @@ def test_stats_does_not_import_app():
     import spoolmaker.stats as s
 
     assert ".app" not in inspect.getsource(s)
+
+
+def test_bambu_printer_does_not_rebuild_geometry():
+    cache.half(CFG, "a")
+    misses = cache._half.cache_info().misses
+    x1c = replace(CFG, bambu_printer="x1-carbon")
+    assert cache.half(x1c, "a") is cache.half(CFG, "a")
+    assert cache.three_mf(x1c) is cache.three_mf(CFG)
+    assert cache.bambu_project(x1c) != cache.bambu_project(CFG)
+    assert cache._half.cache_info().misses == misses

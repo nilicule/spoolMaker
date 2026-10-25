@@ -66,6 +66,15 @@ def create_app() -> Flask:
             return jsonify(errors=errors), 422
         return _model_response(cache.three_mf(cfg), "model/3mf", "spool.3mf")
 
+    @app.get("/api/spool-bambu.3mf")
+    def spool_bambu():
+        cfg = from_query(_args())
+        errors = validate(cfg)
+        if errors:
+            return jsonify(errors=errors), 422
+        return _model_response(cache.bambu_project(cfg), "model/3mf",
+                               f"spool-{cfg.bambu_printer}.3mf")
+
     return app
 
 
