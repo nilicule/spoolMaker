@@ -9,6 +9,7 @@ from manifold3d import Manifold
 from ..config import SpoolConfig
 from .body import core_tube, flange_disc, sleeve
 from .dims import dims
+from .features import apply_features, core_pockets, layout
 from .lock import TWIST_DEG, lock_cuts, lugs
 
 
@@ -16,10 +17,14 @@ def build_half(cfg: SpoolConfig, half: Literal["a", "b"]) -> Manifold:
     """One half in print pose: outer flange face on z=0, core/sleeve toward +Z."""
     d = dims(cfg)
     if half == "a":
-        return flange_disc(d) + core_tube(d) - lock_cuts(d)
-    if half == "b":
-        return flange_disc(d) + sleeve(d) + lugs(d)
-    raise ValueError(f"unknown half {half!r}")
+        body = flange_disc(d) + core_tube(d) - lock_cuts(d)
+        if cfg.lightweight:
+            body -= core_pockets(d)
+    elif half == "b":
+        body = flange_disc(d) + sleeve(d) + lugs(d)
+    else:
+        raise ValueError(f"unknown half {half!r}")
+    return apply_features(body, cfg, d, layout(cfg, d))
 
 
 def assembled(cfg: SpoolConfig) -> tuple[Manifold, Manifold]:

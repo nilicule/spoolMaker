@@ -1,0 +1,233 @@
+import math
+import time
+
+import pytest
+from manifold3d import CrossSection, Error, JoinType, Manifold
+
+from spoolmaker.config import RIM_WIDTH, SpoolConfig, validate
+from spoolmaker.geometry.build import assembled, build_half
+from spoolmaker.geometry.dims import dims
+from spoolmaker.geometry.features import (
+    CLIP_HOLE_D,
+    ENGRAVE_DEPTH,
+    TAG_DEPTH,
+    layout,
+)
+
+PLAIN = dict(pattern="none", label=False, gauge=False, clip_holes=0)
+
+
+# --- brief tests -----------------------------------------------------------
+
+def test_rim_ring_intact():
+    cfg = SpoolConfig(pattern="voronoi", pattern_density=1.0, clip_holes=8)
+    m = build_half(cfg, "a")
+    d = dims(cfg)
+    ring = Manifold.cylinder(d.t, d.R, circular_segments=d.seg) - Manifold.cylinder(
+        d.t, d.R - 1.5, circular_segments=d.seg)
+    assert (ring - m).volume() < 1e-2           # outer 1.5 mm of rim fully solid
+
+
+def test_width_unchanged_by_features():
+    plain = build_half(SpoolConfig(pattern="none", label=False, gauge=False, clip_holes=0), "a").bounding_box()
+    full = build_half(SpoolConfig(text="PETG 240", tag_pocket=True), "a").bounding_box()
+    assert full[5] - full[2] == pytest.approx(plain[5] - plain[2], abs=1e-6)
+
+
+def test_lightweight_is_lighter():
+    assert build_half(SpoolConfig(lightweight=True), "a").volume() < build_half(SpoolConfig(), "a").volume() * 0.9
+
+
+def test_pattern_lighter_than_none():
+    assert build_half(SpoolConfig(pattern="honeycomb"), "b").volume() < build_half(SpoolConfig(pattern="none"), "b").volume()
+
+
+def test_keepouts_stay_solid():
+    cfg = SpoolConfig(pattern="holes", pattern_density=1.0)
+    lay = layout(cfg, dims(cfg))
+    m = build_half(cfg, "a")
+    label_prism = lay.label.offset(-1.0, JoinType.Miter).extrude(dims(cfg).t).translate((0, 0, 0))
+    assert (label_prism - m).volume() < 1.0     # only the outline groove missing
+
+
+def test_all_features_max_density_valid():
+    cfg = SpoolConfig(pattern="honeycomb", pattern_density=1.0, lightweight=True, text="WWWWWWWWWWWWWWWWWWWWWWWW",
+                      tag_pocket=True, tag_diameter=30, clip_holes=8, gauge_material="ABS")
+    for h in "ab":
+        m = build_half(cfg, h)
+        assert m.status() == Error.NoError and m.volume() > 0
+
+
+def test_lock_still_works_with_lightweight():
+    a, b = assembled(SpoolConfig(lightweight=True))
+    assert (a ^ b).volume() < 1e-3
+
+
+# --- additional tests ------------------------------------------------------
+
+def _slice_removed(cfg_a, cfg_b, z):
+    """2D region present in half A of cfg_a but missing from cfg_b, sliced at z."""
+    return (build_half(cfg_a, "a") - build_half(cfg_b, "a")).slice(z)
+
+
+def _centre_x(cs: CrossSection) -> float:
+    x0, _, x1, _ = cs.bounds()
+    return (x0 + x1) / 2
+
+
+def test_text_engraving_reads_correctly_from_outside():
+    """The flange's outer face is z=0 (bed face; outward-facing in the assembled spool).
+
+    A viewer looks at it from -Z toward +Z with +Y up. For a camera looking along +Z with
+    up +Y, its right-hand direction is forward x up = Z x Y = -X. So a correctly reading
+    "L" (vertical stroke on the viewer's left, foot extending to the viewer's right) must
+    have its stroke on the model's +X side and its foot extending toward -X. Therefore
+    the top half of the engraved "L" (stroke only) sits at larger X than the glyph's
+    overall centre.
+    """
+    removed = _slice_removed(SpoolConfig(**PLAIN), SpoolConfig(**PLAIN, text="L"), ENGRAVE_DEPTH / 2)
+    assert removed.area() > 1.0
+    x0, y0, x1, y1 = removed.bounds()
+    top = removed ^ CrossSection.square((x1 - x0 + 2, (y1 - y0) / 2)).translate((x0 - 1, (y0 + y1) / 2))
+    bottom = removed ^ CrossSection.square((x1 - x0 + 2, (y1 - y0) / 2)).translate((x0 - 1, y0))
+    assert _centre_x(top) > _centre_x(removed) + 0.5        # stroke on model +X
+    assert bottom.bounds()[0] == pytest.approx(x0, abs=0.2)  # foot reaches model -X
+    # Text sits at 270 deg (model -Y) and is not upside down: the foot is at the bottom,
+    # i.e. toward the rim (more negative Y), with the label (90 deg) at the top.
+    assert (y0 + y1) / 2 < 0
+
+
+def test_engraving_depth_and_location():
+    cfg = SpoolConfig(**PLAIN, text="HELLO")
+    lay = layout(cfg, dims(cfg))
+    diff = build_half(SpoolConfig(**PLAIN), "a") - build_half(cfg, "a")
+    # drop zero-volume boolean slivers from differencing two near-identical meshes
+    removed = Manifold.compose([p for p in diff.decompose() if p.volume() > 1e-6])
+    lo, hi = removed.bounding_box()[2], removed.bounding_box()[5]
+    assert lo == pytest.approx(0, abs=1e-6) and hi == pytest.approx(ENGRAVE_DEPTH, abs=1e-6)
+    assert (removed.slice(0.3) - lay.text).area() < 1e-3
+
+
+def test_text_scaled_to_fit_chord():
+    cfg = SpoolConfig(**PLAIN, text="W" * 24)
+    d = dims(cfg)
+    x0, y0, x1, y1 = layout(cfg, d).text.bounds()
+    for x, y in ((x0, y0), (x1, y0), (x0, y1), (x1, y1)):
+        assert math.hypot(x, y) < d.rim_r
+    assert y1 < 0  # stays on the 270 deg side
+
+
+def test_label_at_90_text_at_270_gauge_at_0_tag_at_180():
+    cfg = SpoolConfig(text="PLA", tag_pocket=True)
+    lay = layout(cfg, dims(cfg))
+    def centre(cs):
+        x0, y0, x1, y1 = cs.bounds()
+        return (x0 + x1) / 2, (y0 + y1) / 2
+    lx, ly = centre(lay.label)
+    assert abs(lx) < 1e-6 and ly > 0
+    tx, ty = centre(lay.text)
+    assert abs(tx) < 1e-6 and ty < 0
+    gx, gy = centre(lay.gauge)
+    assert gx > 0 and abs(gy) < 1e-6
+    cx, cy = centre(lay.tag)
+    assert cx < 0 and abs(cy) < 1e-6
+
+
+def test_gauge_ticks_engraved_at_tick_radii():
+    from spoolmaker.filament import gauge_ticks
+
+    cfg = SpoolConfig(pattern="none", label=False, clip_holes=0)
+    removed = _slice_removed(SpoolConfig(**PLAIN), cfg, ENGRAVE_DEPTH / 2)
+    for _, r in gauge_ticks(cfg):
+        probe = CrossSection.square((0.4, 0.4), center=True).translate((r, 2.0))
+        probe_other = CrossSection.square((0.4, 0.4), center=True).translate((r, -2.0))
+        assert (removed ^ probe).area() > 0.1 or (removed ^ probe_other).area() > 0.1
+
+
+def test_clip_holes_through():
+    cfg = SpoolConfig(pattern="none", label=False, gauge=False, clip_holes=4)
+    d = dims(cfg)
+    m = build_half(cfg, "b")
+    r = d.R - RIM_WIDTH / 2
+    for i in range(4):
+        a = math.radians(45 + 90 * i)
+        pin = Manifold.cylinder(d.t, CLIP_HOLE_D / 2 - 0.1, circular_segments=24).translate(
+            (r * math.cos(a), r * math.sin(a), 0))
+        assert (pin ^ m).volume() < 1e-6
+
+
+def test_tag_pocket_on_inner_face():
+    cfg = SpoolConfig(**PLAIN, tag_pocket=True, tag_diameter=25)
+    d = dims(cfg)
+    diff = build_half(SpoolConfig(**PLAIN), "b") - build_half(cfg, "b")
+    removed = Manifold.compose([p for p in diff.decompose() if p.volume() > 1e-6])
+    bb = removed.bounding_box()
+    assert bb[2] == pytest.approx(d.t - TAG_DEPTH, abs=1e-6) and bb[5] == pytest.approx(d.t, abs=1e-6)
+    assert bb[3] - bb[0] == pytest.approx(25.4, abs=0.1)
+    assert (bb[0] + bb[3]) / 2 == pytest.approx(-(d.r_core_out + 12.5 + 3), abs=0.05)
+
+
+def test_tag_fit_validation():
+    ok = SpoolConfig(tag_pocket=True, tag_diameter=30)
+    assert not any("tag" in e.lower() for e in validate(ok))
+    bad = SpoolConfig(tag_pocket=True, tag_diameter=30, refill="custom", coil_inner_diameter=150.0)
+    assert any("tag" in e.lower() for e in validate(bad))
+    assert not any("tag" in e.lower() for e in validate(
+        SpoolConfig(tag_pocket=False, refill="custom", coil_inner_diameter=150.0)))
+
+
+def test_lightweight_web_thinned_but_keepouts_full():
+    cfg = SpoolConfig(pattern="none", lightweight=True, clip_holes=0)
+    d = dims(cfg)
+    lay = layout(cfg, d)
+    m = build_half(cfg, "b")
+    web_t = max(1.6, 0.6 * d.t)
+    # outer face flat: full footprint at the bottom
+    assert m.slice(0.01).area() == pytest.approx(build_half(SpoolConfig(pattern="none", clip_holes=0), "b").slice(0.01).area(), rel=1e-3)
+    upper = m.slice((web_t + d.t) / 2)
+    # keep-outs remain at full thickness
+    for ko in (lay.label, lay.gauge):
+        assert (ko - upper).area() < 1e-3
+    # a point in the open web is thinned
+    probe = CrossSection.square((1, 1), center=True).translate((-(d.hub_ring_r + d.rim_r) / 2 * 0.7071,
+                                                               (d.hub_ring_r + d.rim_r) / 2 * 0.7071))
+    assert (probe ^ upper).area() < 1e-6
+    # hub ring and rim ring at full thickness
+    rim = CrossSection.circle(d.R, d.seg) - CrossSection.circle(d.rim_r + 0.1, d.seg)
+    assert (rim - upper).area() < 1e-2
+
+
+def test_lightweight_engravings_do_not_break_through():
+    cfg = SpoolConfig(pattern="voronoi", pattern_density=1.0, lightweight=True, text="PETG",
+                      flange_thickness=2.0, coil_width=60.0, clip_holes=0, tag_pocket=True)
+    d = dims(cfg)
+    lay = layout(cfg, d)
+    m = build_half(cfg, "a")
+    # Every engraved region still has material from ENGRAVE_DEPTH up to t.
+    for cs in (lay.text, lay.label, lay.gauge):
+        prism = cs.extrude(d.t - ENGRAVE_DEPTH - 0.02).translate((0, 0, ENGRAVE_DEPTH + 0.01))
+        assert (prism - m).volume() < 1e-3
+
+
+def test_lightweight_core_pockets_half_a():
+    cfg = SpoolConfig(pattern="none", lightweight=True)
+    d = dims(cfg)
+    heavy = build_half(SpoolConfig(pattern="none"), "a")
+    light = build_half(cfg, "a")
+    # Core section near the top end loses material; the core outer and inner skins stay.
+    z = d.t + d.inner_width - 2
+    assert light.slice(z).area() < heavy.slice(z).area() * 0.8
+    outer_skin = CrossSection.circle(d.r_core_out, d.seg) - CrossSection.circle(d.r_core_out - 1.1, d.seg)
+    assert (outer_skin ^ heavy.slice(z)).area() - (outer_skin ^ light.slice(z)).area() < 1e-2
+    # pockets are blind: the bottom of the core is untouched
+    zb = d.t + 5.0
+    assert light.slice(zb).area() == pytest.approx(heavy.slice(zb).area(), rel=1e-6)
+
+
+def test_build_half_performance():
+    cfg = SpoolConfig(pattern="voronoi", pattern_density=1.0, lightweight=True, text="WWWWWWWWWWWW",
+                      tag_pocket=True, clip_holes=8)
+    build_half(cfg, "a").to_mesh()  # warm caches (font, scipy import)
+    t0 = time.perf_counter()
+    build_half(cfg, "a").to_mesh()  # manifold3d is lazy; force evaluation
+    assert time.perf_counter() - t0 < 1.5

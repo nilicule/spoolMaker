@@ -163,6 +163,15 @@ def validate(cfg: SpoolConfig) -> list[str]:
             f"1 kg of {cfg.gauge_material} does not fit inside the flanges for this coil; "
             "reduce the coil inner diameter or increase its width."
         )
+    if cfg.tag_pocket:
+        from .geometry.dims import dims
+        from .geometry.features import tag_fits
+
+        if not tag_fits(cfg, dims(cfg)):
+            errors.append(
+                f"A {cfg.tag_diameter} mm NFC tag pocket does not fit between the core and "
+                "the rim; choose a smaller tag or a smaller coil inner diameter."
+            )
     return errors
 
 
