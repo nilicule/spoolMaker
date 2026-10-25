@@ -201,11 +201,16 @@ def test_clip_holes_come_in_tangential_pairs(lightweight):
         mx, my = (x0 + x1) / 2, (y0 + y1) / 2
         assert abs((x1 - x0) * mx + (y1 - y0) * my) < 1e-9
         # the bridge between the two holes is solid, full thickness
-        assert CLIP_PAIR_PITCH - CLIP_HOLE_D == pytest.approx(2.8)
-        bridge_w = CLIP_PAIR_PITCH - CLIP_HOLE_D - 0.2
-        probe = (Manifold.cylinder(d.t, bridge_w / 2, circular_segments=24)
+        assert CLIP_PAIR_PITCH - CLIP_HOLE_D == pytest.approx(5.8)
+        # probe the middle of the bridge (radius capped to stay inside the rim)
+        probe = (Manifold.cylinder(d.t, 1.5, circular_segments=24)
                  .translate((mx, my, 0)))
         assert (probe - m).volume() < 1e-6
+        # and so is the whole strip from one hole's edge to the other's
+        strip = (Manifold.cube((CLIP_PAIR_PITCH - CLIP_HOLE_D - 0.2, 2.0, d.t), center=True)
+                 .rotate((0, 0, math.degrees(math.atan2(y1 - y0, x1 - x0))))
+                 .translate((mx, my, d.t / 2)))
+        assert (strip - m).volume() < 1e-6
         assert math.hypot(mx, my) <= r + 1e-9
 
 

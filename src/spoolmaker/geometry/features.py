@@ -27,7 +27,7 @@ ENGRAVE_DEPTH = 0.6
 LABEL_OUTLINE_W = 0.8
 TAG_DEPTH = 1.0
 CLIP_HOLE_D = 2.2
-CLIP_PAIR_PITCH = 5.0  # centre-to-centre of a clip pair's two holes (~2.8 mm bridge)
+CLIP_PAIR_PITCH = 8.0  # centre-to-centre of a clip pair's two holes (~5.8 mm bridge)
 
 TEXT_CAP = 7.0
 TEXT_MARGIN = 2.0  # text keeps this far from the hub ring and the rim
