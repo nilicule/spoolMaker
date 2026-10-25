@@ -14,7 +14,7 @@ PATTERNS = ("none", "honeycomb", "spokes", "voronoi", "holes", "isogrid")
 MATERIALS = ("PLA", "PETG", "ABS", "ASA", "TPU", "PC")
 TAG_SIZES = (20, 25, 30)
 BORE_MARGIN = 12.0
-MIN_LOCK_WALL = 1.6  # core wall left behind half A's bayonet channels and pocket
+MIN_LOCK_WALL = 1.6  # socket wall left behind half A's bayonet channels and pocket
 
 
 @dataclass(frozen=True)
@@ -165,15 +165,18 @@ def validate(cfg: SpoolConfig) -> list[str]:
             f"Coil inner diameter must be at least {need:g} mm for this bore."
         )
     from .geometry.dims import dims
-    from .geometry.lock import channel_r
 
     d = dims(cfg)
-    wall = d.r_core_out - channel_r(d)
-    if wall < MIN_LOCK_WALL - 1e-9:
+    # Half A's socket wall keeps MIN_LOCK_WALL behind the channels by construction; the
+    # socket wall, sleeve clearance and B's sleeve must then fit outside the bore.
+    room = d.r_core_out - d.r_bore
+    need = d.r_core_out - d.r_sleeve_in
+    if d.r_sleeve_in < d.r_bore - 1e-9:
         errors.append(
-            f"The core wall behind the twist-lock would be only {wall:.1f} mm "
-            f"(minimum {MIN_LOCK_WALL:g} mm); increase the coil inner diameter or reduce "
-            "the bore, coil clearance or twist-lock clearance."
+            f"The twist-lock needs {need:.1f} mm between the bore and the core but only "
+            f"{room:.1f} mm is available (wall behind the lock at least {MIN_LOCK_WALL:g} mm); "
+            "increase the coil inner diameter or reduce the bore, coil clearance or "
+            "twist-lock clearance."
         )
     if not coil_fits(cfg):
         errors.append(

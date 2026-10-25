@@ -4,9 +4,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from ..config import RIM_WIDTH, SpoolConfig
+from ..config import MIN_LOCK_WALL, RIM_WIDTH, SpoolConfig
 
 SLEEVE_WALL = 2.4
+TUBE_WALL = 3.0  # plain core tube wall
+LUG_RADIAL = 1.4  # radial reach of B's lugs (and depth of A's channels into the socket wall)
+# Half A's socket wall: channel depth (measured from the socket bore) plus the wall left
+# behind the channels and pocket.
+SOCKET_WALL = LUG_RADIAL + MIN_LOCK_WALL
+COLLAR_DEPTH = 8.0  # bore collar height above each flange's inner face
+COLLAR_WALL = 2.4
 HUB_RING = 6.0
 SEAT_GAP = 0.3  # B's sleeve stops short of A's socket floor; the core tops alone set the width
 SEGMENTS = 128
@@ -18,10 +25,14 @@ class Dims:
     t: float  # flange thickness
     inner_width: float  # distance between flange inner faces
     r_bore: float
+    r_collar: float  # outer radius of the bore collar
+    r_core_out: float
+    r_tube_a_in: float  # inner radius of half A's tube below the socket
+    r_tube_b_in: float  # inner radius of half B's tube
+    r_socket_in: float  # bore of half A's socket
     sleeve_wall: float
     r_sleeve_out: float
-    r_core_in: float
-    r_core_out: float
+    r_sleeve_in: float
     hub_ring_r: float  # solid zone on the flange around the core
     rim_r: float
     lock_clearance: float
@@ -30,18 +41,24 @@ class Dims:
 
 def dims(cfg: SpoolConfig) -> Dims:
     r_bore = cfg.bore_diameter / 2
-    r_sleeve_out = r_bore + SLEEVE_WALL
     r_core_out = cfg.coil_inner_diameter / 2 - cfg.coil_clearance / 2
+    r_socket_in = r_core_out - SOCKET_WALL
+    r_sleeve_out = r_socket_in - cfg.lock_clearance
     R = cfg.outer_diameter / 2
     return Dims(
         R=R,
         t=cfg.flange_thickness,
         inner_width=cfg.inner_width,
         r_bore=r_bore,
+        r_collar=r_bore + COLLAR_WALL,
+        r_core_out=r_core_out,
+        # A thicker socket wall continues down the whole tube (no overhanging step).
+        r_tube_a_in=r_core_out - max(TUBE_WALL, SOCKET_WALL),
+        r_tube_b_in=r_core_out - TUBE_WALL,
+        r_socket_in=r_socket_in,
         sleeve_wall=SLEEVE_WALL,
         r_sleeve_out=r_sleeve_out,
-        r_core_in=r_sleeve_out + cfg.lock_clearance,
-        r_core_out=r_core_out,
+        r_sleeve_in=r_sleeve_out - SLEEVE_WALL,
         hub_ring_r=r_core_out + HUB_RING,
         rim_r=R - RIM_WIDTH,
         lock_clearance=cfg.lock_clearance,

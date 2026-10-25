@@ -1,8 +1,8 @@
 """Bayonet twist-lock: lugs on half B's sleeve tip, channels + pocket in half A's socket.
 
-The halves are male/female and roughly equal height. Half A's core ends in a socket
-(SOCKET_DEPTH deep, bore r_core_in) at its top; half B's shorter core carries a sleeve
-that plugs into it. The core tops of the two halves meet at the joint, which alone sets
+The halves are male/female and roughly equal height. Both cores are thin tubes. Half A's
+tube ends in a socket (SOCKET_DEPTH deep, bore r_socket_in) at its top; half B's shorter
+tube carries a sleeve, bridged inward from the tube top, that plugs into it. The core tops of the two halves meet at the joint, which alone sets
 the overall width; B's sleeve tip stops SEAT_GAP short of A's socket floor.
 
 Both are expressed in each half's print pose. Lugs are centred on angles
@@ -17,11 +17,10 @@ import math
 
 from manifold3d import CrossSection, Manifold
 
-from .dims import SEAT_GAP, Dims
+from .dims import LUG_RADIAL, SEAT_GAP, Dims
 
 LUGS = 3
 LUG_ARC_DEG = 20
-LUG_RADIAL = 1.4
 LUG_AXIAL = 4.0
 TWIST_DEG = 30
 DETENT_INTERFERENCE = 0.25  # radial overlap of ridge tip with the lug, independent of clearance
@@ -40,7 +39,8 @@ def core_height_b(d: Dims) -> float:
 
 
 def socket_floor_z(d: Dims) -> float:
-    """z of A's socket floor in A's print pose (= assembled frame)."""
+    """z of A's socket floor plane in A's print pose (= assembled frame); the channels and
+    pocket stop here, B's sleeve tip SEAT_GAP above it."""
     return d.t + core_height_a(d) - SOCKET_DEPTH
 
 
@@ -80,7 +80,7 @@ def lock_cuts(d: Dims) -> Manifold:
     """Material to remove from half A's socket: axial channels from A's core top down to
     the socket floor, pocket at the socket bottom, minus detent ridges."""
     r_out = channel_r(d)
-    r_in = d.r_core_in - 0.5  # start inside the empty hole for a clean cut
+    r_in = d.r_socket_in - 0.5  # start inside the empty socket for a clean cut
     clr = _deg(d.lock_clearance, r_out)
     half_arc = LUG_ARC_DEG / 2
     z0 = socket_floor_z(d)

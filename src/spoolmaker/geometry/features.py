@@ -20,7 +20,6 @@ from manifold3d import CrossSection, JoinType, Manifold, OpType
 from ..config import RIM_WIDTH, SpoolConfig
 from ..filament import gauge_ticks
 from .dims import Dims
-from .lock import LUG_ARC_DEG, LUGS, TWIST_DEG, channel_r, core_height_a, core_height_b
 from .patterns import pattern_cutouts
 from .text import text_outline
 
@@ -38,9 +37,6 @@ GAUGE_TEXT_CAP = 3.5
 TAG_CLEARANCE = 0.4
 TAG_WALL = 2.0  # full-thickness wall around the tag pocket (matters in lightweight)
 MIN_WEB_T = 1.6
-CORE_SKIN = 1.2
-CORE_POCKET_GAP = 3.0  # material kept between the flange and the bottom of the core pockets
-CORE_POCKET_MARGIN = 2.0  # deg kept between core pockets and the lock's channels/pockets
 _SEG = 64
 
 
@@ -226,45 +222,3 @@ def apply_features(m: Manifold, cfg: SpoolConfig, d: Dims, lay: Layout) -> Manif
         return m
     return Manifold.batch_boolean([m, *cuts], OpType.Subtract)
 
-
-def _ring_pockets(r0: float, r1: float, depth: float, z_top: float, starts: list[float],
-                  span: float, n: int, seg: int) -> Manifold:
-    """n blind axial pockets per angular span (r0..r1, open at z_top, depth deep), with
-    at least CORE_SKIN of rib between neighbours."""
-    if r1 - r0 < 1.0 or depth <= 0 or span <= 0:
-        return Manifold()
-    pitch = span / n
-    rib = math.degrees(CORE_SKIN / r0) + 1.0
-    arc = pitch - rib
-    if arc <= 0:
-        return Manifold()
-    profile = CrossSection([[(r0, 0.0), (r1, 0.0), (r1, depth + 1), (r0, depth + 1)]])
-    pocket = profile.revolve(max(seg // 8, 8), arc)
-    parts = [pocket.rotate((0, 0, s + k * pitch + rib / 2)) for s in starts for k in range(n)]
-    return Manifold.compose(parts).translate((0, 0, z_top - depth))
-
-
-def core_pockets_a(d: Dims) -> Manifold:
-    """Blind axial pockets opening at the top of half A's core (closed by B's core in the
-    assembly), radially outside the lock channels/pocket and angularly in the gaps
-    between them, running down through the socket wall into the solid core below it."""
-    r0 = channel_r(d) + CORE_SKIN
-    r1 = d.r_core_out - CORE_SKIN
-    h = core_height_a(d)
-    gap = 360 / LUGS
-    lo = LUG_ARC_DEG / 2 + TWIST_DEG + CORE_POCKET_MARGIN + 1.0  # past the pocket + clearance
-    hi = gap - LUG_ARC_DEG / 2 - CORE_POCKET_MARGIN - 1.0  # before the next channel
-    starts = [i * gap + lo for i in range(LUGS)]
-    return _ring_pockets(r0, r1, h - CORE_POCKET_GAP, d.t + h, starts, hi - lo, 3, d.seg)
-
-
-def core_pockets_b(d: Dims) -> Manifold:
-    """Blind axial pockets opening at the top of half B's core tube, radially outside the
-    sleeve. They start outside A's channel radius so A's core top (or one of A's own core
-    pockets) closes them in the assembly instead of a lock channel exposing them."""
-    r0 = channel_r(d) + CORE_SKIN
-    r1 = d.r_core_out - CORE_SKIN
-    h = core_height_b(d)
-    gap = 360 / LUGS
-    starts = [i * gap for i in range(LUGS)]
-    return _ring_pockets(r0, r1, h - CORE_POCKET_GAP, d.t + h, starts, gap, 4, d.seg)

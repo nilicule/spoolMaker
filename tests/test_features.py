@@ -209,63 +209,54 @@ def test_lightweight_engravings_do_not_break_through():
         assert (prism - m).volume() < 1e-3
 
 
-def test_lightweight_core_pockets_half_a():
-    from spoolmaker.geometry.features import CORE_POCKET_GAP
-    from spoolmaker.geometry.lock import core_height_a
-
-    cfg = SpoolConfig(pattern="none", lightweight=True)
-    d = dims(cfg)
-    heavy = build_half(SpoolConfig(pattern="none"), "a")
-    light = build_half(cfg, "a")
-    # Core section near the top end loses material; the core outer and inner skins stay.
-    z = d.t + core_height_a(d) - 2
-    assert light.slice(z).area() < heavy.slice(z).area() * 0.8
-    outer_skin = CrossSection.circle(d.r_core_out, d.seg) - CrossSection.circle(d.r_core_out - 1.1, d.seg)
-    assert (outer_skin ^ heavy.slice(z)).area() - (outer_skin ^ light.slice(z)).area() < 1e-2
-    # pockets are blind: the bottom of the core is untouched
-    zb = d.t + CORE_POCKET_GAP / 2
-    assert light.slice(zb).area() == pytest.approx(heavy.slice(zb).area(), rel=1e-6)
-
-
-def test_lightweight_core_pockets_half_b():
-    from spoolmaker.geometry.features import CORE_POCKET_GAP
+@pytest.mark.parametrize("lightweight", [False, True])
+@pytest.mark.parametrize("half", ["a", "b"])
+def test_cores_are_thin_tubes(half, lightweight):
+    """Between the collar and the lock, each core is just its thin tube wall: nothing but
+    air from the bore out to the tube's bore."""
+    from spoolmaker.geometry.dims import COLLAR_DEPTH
     from spoolmaker.geometry.lock import core_height_b
 
-    cfg = SpoolConfig(pattern="none", lightweight=True)
+    cfg = SpoolConfig(**PLAIN, lightweight=lightweight)
     d = dims(cfg)
-    heavy = build_half(SpoolConfig(pattern="none"), "b")
-    light = build_half(cfg, "b")
-    z = d.t + core_height_b(d) - 2
-    assert light.slice(z).area() < heavy.slice(z).area() * 0.8
-    outer_skin = CrossSection.circle(d.r_core_out, d.seg) - CrossSection.circle(d.r_core_out - 1.1, d.seg)
-    assert (outer_skin ^ heavy.slice(z)).area() - (outer_skin ^ light.slice(z)).area() < 1e-2
-    bore_skin = CrossSection.circle(d.r_sleeve_out + 1.1, d.seg) - CrossSection.circle(d.r_bore, d.seg)
-    assert (bore_skin ^ heavy.slice(z)).area() - (bore_skin ^ light.slice(z)).area() < 1e-2
-    zb = d.t + CORE_POCKET_GAP / 2
-    assert light.slice(zb).area() == pytest.approx(heavy.slice(zb).area(), rel=1e-6)
-    # the sleeve above the core is untouched
-    zs = d.t + core_height_b(d) + 2
-    assert light.slice(zs).area() == pytest.approx(heavy.slice(zs).area(), rel=1e-6)
+    m = build_half(cfg, half)
+    r_in = d.r_tube_a_in if half == "a" else d.r_tube_b_in
+    for z in (d.t + COLLAR_DEPTH + 1, d.t + core_height_b(d) - 4):
+        sec = m.slice(z) ^ CrossSection.circle(d.r_core_out + 1, d.seg)
+        assert sec.area() == pytest.approx(math.pi * (d.r_core_out**2 - r_in**2), rel=0.01)
+        assert (sec ^ CrossSection.circle(r_in - 0.05, d.seg)).is_empty()
 
 
-def test_lightweight_core_pockets_closed_in_assembly():
-    """Each half's core pockets open only onto the other half's core end: at the joint
-    the material they remove lies strictly inside the core wall, clear of the outer skin
-    and of the lock channels / bore, so the assembled spool shows no openings."""
-    from spoolmaker.geometry.features import CORE_SKIN
-    from spoolmaker.geometry.lock import channel_r, core_height_a
+@pytest.mark.parametrize("half", ["a", "b"])
+def test_bore_collar(half):
+    from spoolmaker.geometry.dims import COLLAR_DEPTH, COLLAR_WALL
 
-    cfg = SpoolConfig(pattern="none", lightweight=True)
+    d = dims(SpoolConfig(**PLAIN))
+    m = build_half(SpoolConfig(**PLAIN), half)
+    probe = Manifold.cylinder(COLLAR_DEPTH - 0.5, 0.2, circular_segments=8)
+    for k in range(6):
+        a = math.radians(k * 60 + 7)
+        p = probe.translate(((d.r_bore + 1) * math.cos(a), (d.r_bore + 1) * math.sin(a), d.t))
+        assert (p - m).volume() < 1e-6  # solid collar wall at r_bore + 1
+    # ... and nothing beyond its top
+    above = Manifold.cylinder(1.0, d.r_bore + COLLAR_WALL - 0.1, circular_segments=d.seg) - \
+        Manifold.cylinder(1.0, d.r_bore + 0.1, circular_segments=d.seg)
+    assert (above.translate((0, 0, d.t + COLLAR_DEPTH + 0.2)) ^ m).volume() < 1e-6
+
+
+def test_b_tube_top_is_full_annulus():
+    """B's tube top (its contact face with A's tube top) is a full annulus: the 45 deg
+    bridge to the sleeve sits inside it."""
+    from spoolmaker.geometry.lock import core_height_b
+
+    cfg = SpoolConfig(**PLAIN)
     d = dims(cfg)
-    a, b = assembled(cfg)
-    ah, bh = assembled(SpoolConfig(pattern="none"))
-    z = d.t + core_height_a(d)
-    inside = CrossSection.circle(d.r_core_out - CORE_SKIN + 0.05, d.seg) - CrossSection.circle(
-        channel_r(d) + CORE_SKIN - 0.05, d.seg)  # 0.05: facet sagitta
-    for zz in (z - 0.5, z + 0.5):
-        missing = (ah + bh).slice(zz) - (a + b).slice(zz)
-        assert missing.area() > 10.0
-        assert (missing - inside).area() < 1e-3
+    sec = build_half(cfg, "b").slice(d.t + core_height_b(d) - 0.05)
+    ring = CrossSection.circle(d.r_core_out - 0.05, d.seg) - CrossSection.circle(d.r_tube_b_in, d.seg)
+    assert (ring - sec).area() < 1e-3
+    # the bridge reaches almost to the sleeve bore just below the joint
+    assert (CrossSection.circle(d.r_tube_b_in, d.seg) ^ sec).area() > 0.8 * math.pi * (
+        d.r_tube_b_in**2 - (d.r_sleeve_in + 0.1) ** 2)
 
 
 def test_build_half_performance():

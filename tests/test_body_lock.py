@@ -4,7 +4,10 @@ from manifold3d import Error, Manifold
 from spoolmaker.config import SpoolConfig
 from spoolmaker.geometry.build import assembled, build_half
 
-CFG = SpoolConfig(pattern="none", label=False, gauge=False, clip_holes=0)
+_PLAIN = dict(pattern="none", label=False, gauge=False, clip_holes=0)
+CFG = SpoolConfig(**_PLAIN)
+# Tightest accepted lock: minimum coil ID for the largest bore with default clearances.
+TIGHT = SpoolConfig(**_PLAIN, refill="custom", coil_inner_diameter=70.0, bore_diameter=58.0)
 
 
 @pytest.mark.parametrize("half", ["a", "b"])
@@ -20,20 +23,24 @@ def test_assembled_envelope():
     assert hi[0] - lo[0] == pytest.approx(CFG.outer_diameter, abs=0.2)
 
 
-def test_locked_halves_do_not_intersect():
-    a, b = assembled(CFG)
+@pytest.mark.parametrize("cfg", [CFG, TIGHT], ids=["default", "tight"])
+def test_locked_halves_do_not_intersect(cfg):
+    a, b = assembled(cfg)
     assert (a ^ b).volume() < 1e-3
 
 
-def test_lug_blocked_when_not_in_channel():
-    a, b = assembled(CFG)  # locked
+@pytest.mark.parametrize("cfg", [CFG, TIGHT], ids=["default", "tight"])
+def test_lug_blocked_when_not_in_channel(cfg):
+    a, b = assembled(cfg)  # locked
     b_pulled = b.translate((0, 0, 5.0))  # try to pull apart axially
     assert (a ^ b_pulled).volume() > 1.0  # lugs collide -> locked
 
 
-def test_bore_clear():
-    a, b = assembled(CFG)
-    probe = Manifold.cylinder(CFG.overall_width, CFG.bore_diameter / 2 - 0.05, circular_segments=128)
+@pytest.mark.parametrize("cfg", [CFG, TIGHT], ids=["default", "tight"])
+def test_bore_clear(cfg):
+    # The tightest accepted config puts B's sleeve bore flush with the bore.
+    a, b = assembled(cfg)
+    probe = Manifold.cylinder(cfg.overall_width, cfg.bore_diameter / 2 - 0.05, circular_segments=128)
     assert ((a + b) ^ probe).volume() < 1e-3
 
 
@@ -91,15 +98,15 @@ def test_only_core_tops_seat_the_halves():
     a, b = assembled(CFG)
     z_floor = socket_floor_z(d)
     # B's sleeve tip stops SEAT_GAP short of A's socket floor ...
-    gap = tube(SEAT_GAP - 0.02, d.r_bore - 0.5, d.r_core_in - 0.01, d.seg).translate((0, 0, z_floor + 0.01))
+    gap = tube(SEAT_GAP - 0.02, d.r_bore - 0.5, d.r_socket_in - 0.01, d.seg).translate((0, 0, z_floor + 0.01))
     assert (b ^ gap).volume() == pytest.approx(0, abs=1e-6)
     # ... and not much more: the tip is right there (gap ~= SEAT_GAP).
-    tip = tube(0.02, d.r_bore + 0.01, d.r_sleeve_out - 0.01, d.seg).translate((0, 0, z_floor + SEAT_GAP + 0.01))
+    tip = tube(0.02, d.r_sleeve_in + 0.01, d.r_sleeve_out - 0.01, d.seg).translate((0, 0, z_floor + SEAT_GAP + 0.01))
     assert (b ^ tip).volume() > 0
     # A's core top meets B's core top at the joint: both reach it, with zero-volume overlap.
     z_joint = d.t + core_height_a(d)
-    below = tube(0.02, d.r_core_in + 0.01, d.r_core_out - 0.01, d.seg).translate((0, 0, z_joint - 0.02))
-    above = tube(0.02, d.r_core_in + 0.01, d.r_core_out - 0.01, d.seg).translate((0, 0, z_joint))
+    below = tube(0.02, d.r_socket_in + 0.01, d.r_core_out - 0.01, d.seg).translate((0, 0, z_joint - 0.02))
+    above = tube(0.02, d.r_socket_in + 0.01, d.r_core_out - 0.01, d.seg).translate((0, 0, z_joint))
     assert (a ^ below).volume() > 0
     assert (b ^ above).volume() > 0
     assert (a ^ above).volume() == pytest.approx(0, abs=1e-6)

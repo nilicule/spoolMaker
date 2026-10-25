@@ -10,6 +10,7 @@ from manifold3d import Error
 from spoolmaker.config import SpoolConfig
 from spoolmaker.export import to_stl
 from spoolmaker.geometry.build import build_half
+from spoolmaker.geometry.features import ENGRAVE_DEPTH
 
 CONFIGS = {
     "default": SpoolConfig(),
@@ -64,3 +65,37 @@ def test_stl_watertight(half):
     # Consistent orientation: each directed edge appears exactly once.
     directed = Counter(map(tuple, edges))
     assert max(directed.values()) == 1
+
+
+def _overhang_area(m, z_min: float) -> float:
+    """Total area of faces steeper than ~46 deg past vertical facing down (normal_z <
+    -0.72) whose lowest point is above z_min."""
+    mesh = m.to_mesh()
+    v = np.asarray(mesh.vert_properties)[:, :3]
+    p = v[np.asarray(mesh.tri_verts)]
+    n = np.cross(p[:, 1] - p[:, 0], p[:, 2] - p[:, 0])
+    norm = np.linalg.norm(n, axis=1)
+    nz = n[:, 2] / np.maximum(norm, 1e-12)
+    sel = (nz < -0.72) & (p[:, :, 2].min(axis=1) > z_min)
+    return float(norm[sel].sum() / 2)
+
+
+_PLAIN = dict(pattern="none", label=False, gauge=False, clip_holes=0)
+
+
+@pytest.mark.parametrize("h", "ab")
+@pytest.mark.parametrize("cfg,z_min", [
+    (SpoolConfig(), ENGRAVE_DEPTH + 0.1),
+    (SpoolConfig(lightweight=True), ENGRAVE_DEPTH + 0.1),
+    (SpoolConfig(**_PLAIN), 0.2),
+    (SpoolConfig(**_PLAIN, lightweight=True), 0.2),
+], ids=["default", "lightweight", "plain", "plain-lightweight"])
+def test_support_free(cfg, z_min, h):
+    """No downward faces steeper than 45 deg (beyond boolean slivers). Engraved text,
+    label outline and gauge ticks on the bed face are short bridges ENGRAVE_DEPTH up,
+    so the engraved configs start the scan above them."""
+    assert _overhang_area(build_half(cfg, h), z_min) < 5.0
+
+
+def test_default_half_a_volume_target():
+    assert build_half(SpoolConfig(), "a").volume() <= 100_000
