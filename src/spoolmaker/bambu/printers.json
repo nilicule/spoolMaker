@@ -1,0 +1,223 @@
+{
+  "a1": {
+    "name": "Bambu Lab A1",
+    "printer_model": "Bambu Lab A1",
+    "bed": [
+      0.0,
+      0.0,
+      256.0,
+      256.0
+    ],
+    "center": [
+      128.0,
+      128.0
+    ],
+    "app_version": "02.08.04.61",
+    "process": "0.20mm Standard @BBL A1",
+    "filament": "Bambu PLA Basic @BBL A1"
+  },
+  "a2l": {
+    "name": "Bambu Lab A2L",
+    "printer_model": "Bambu Lab A2L",
+    "bed": [
+      0.0,
+      0.0,
+      330.0,
+      320.0
+    ],
+    "center": [
+      165.0,
+      160.0
+    ],
+    "app_version": "02.08.04.61",
+    "process": "0.20mm Standard @BBL A2L",
+    "filament": "Bambu PLA Basic @BBL A2L 0.4 nozzle"
+  },
+  "h2c": {
+    "name": "Bambu Lab H2C",
+    "printer_model": "Bambu Lab H2C",
+    "bed": [
+      0.0,
+      0.0,
+      330.0,
+      320.0
+    ],
+    "center": [
+      175.0,
+      160.0
+    ],
+    "app_version": "02.08.04.61",
+    "process": "0.20mm Standard @BBL H2C",
+    "filament": "Bambu PLA Basic @BBL H2C"
+  },
+  "h2d": {
+    "name": "Bambu Lab H2D",
+    "printer_model": "Bambu Lab H2D",
+    "bed": [
+      0.0,
+      0.0,
+      350.0,
+      320.0
+    ],
+    "center": [
+      175.0,
+      160.0
+    ],
+    "app_version": "02.08.04.61",
+    "process": "0.20mm Standard @BBL H2D",
+    "filament": "Bambu PLA Basic @BBL H2D"
+  },
+  "h2d-pro": {
+    "name": "Bambu Lab H2D Pro",
+    "printer_model": "Bambu Lab H2D Pro",
+    "bed": [
+      0.0,
+      0.0,
+      350.0,
+      320.0
+    ],
+    "center": [
+      175.0,
+      160.0
+    ],
+    "app_version": "02.08.04.61",
+    "process": "0.20mm Standard @BBL H2DP",
+    "filament": "Bambu PLA Basic @BBL H2DP"
+  },
+  "h2s": {
+    "name": "Bambu Lab H2S",
+    "printer_model": "Bambu Lab H2S",
+    "bed": [
+      0.0,
+      0.0,
+      340.0,
+      320.0
+    ],
+    "center": [
+      170.0,
+      160.0
+    ],
+    "app_version": "02.08.04.61",
+    "process": "0.20mm Standard @BBL H2S",
+    "filament": "Bambu PLA Basic @BBL H2S"
+  },
+  "p1p": {
+    "name": "Bambu Lab P1P",
+    "printer_model": "Bambu Lab P1P",
+    "bed": [
+      0.0,
+      0.0,
+      256.0,
+      256.0
+    ],
+    "center": [
+      128.0,
+      128.0
+    ],
+    "app_version": "02.08.04.61",
+    "process": "0.20mm Standard @BBL P1P",
+    "filament": "Bambu PLA Basic @BBL P1P"
+  },
+  "p1s": {
+    "name": "Bambu Lab P1S",
+    "printer_model": "Bambu Lab P1S",
+    "bed": [
+      0.0,
+      0.0,
+      256.0,
+      256.0
+    ],
+    "center": [
+      128.0,
+      128.0
+    ],
+    "app_version": "02.08.04.61",
+    "process": "0.20mm Standard @BBL X1C",
+    "filament": "Bambu PLA Basic @BBL P1S 0.4 nozzle"
+  },
+  "p2s": {
+    "name": "Bambu Lab P2S",
+    "printer_model": "Bambu Lab P2S",
+    "bed": [
+      0.0,
+      0.0,
+      256.0,
+      256.0
+    ],
+    "center": [
+      128.0,
+      128.0
+    ],
+    "app_version": "02.08.04.61",
+    "process": "0.20mm Standard @BBL P2S",
+    "filament": "Bambu PLA Basic @BBL P2S"
+  },
+  "x1": {
+    "name": "Bambu Lab X1",
+    "printer_model": "Bambu Lab X1",
+    "bed": [
+      0.0,
+      0.0,
+      256.0,
+      256.0
+    ],
+    "center": [
+      128.0,
+      128.0
+    ],
+    "app_version": "02.08.04.61",
+    "process": "0.20mm Standard @BBL X1C",
+    "filament": "Bambu PLA Basic @BBL X1"
+  },
+  "x1-carbon": {
+    "name": "Bambu Lab X1 Carbon",
+    "printer_model": "Bambu Lab X1 Carbon",
+    "bed": [
+      0.0,
+      0.0,
+      256.0,
+      256.0
+    ],
+    "center": [
+      128.0,
+      128.0
+    ],
+    "app_version": "02.08.04.61",
+    "process": "0.20mm Standard @BBL X1C",
+    "filament": "Bambu PLA Basic @BBL X1C"
+  },
+  "x1e": {
+    "name": "Bambu Lab X1E",
+    "printer_model": "Bambu Lab X1E",
+    "bed": [
+      0.0,
+      0.0,
+      256.0,
+      256.0
+    ],
+    "center": [
+      128.0,
+      128.0
+    ],
+    "app_version": "02.08.04.61",
+    "process": "0.20mm Standard @BBL X1C",
+    "filament": "Bambu PLA Basic @BBL X1C"
+  },
+  "x2d": {
+    "name": "Bambu Lab X2D",
+    "printer_model": "Bambu Lab X2D",
+    "bed": [
+      0.0,
+      0.0,
+      256.0,
+      256.0
+    ],
+    "center": [
+      138.25,
+      128.0
+    ],
+    "app_version": "02.08.04.61",
+    "process": "0.20mm Standard @BBL X2D",
+    "filament": "Bambu PLA Basic @BBL X2D 0.4 nozzle"
+  }
+}
