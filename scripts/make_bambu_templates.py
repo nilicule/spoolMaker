@@ -17,6 +17,7 @@ import argparse
 import io
 import json
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -29,6 +30,8 @@ from manifold3d import Manifold
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "src" / "spoolmaker" / "bambu"
 MIN_BED = 205.0
+MIN_PRINTERS = 10  # fewer means profiles or the CLI changed: fail rather than ship a gap
+REQUIRED = ("a1",)  # the app's default printer
 PLATE_GAP = 1.2  # Bambu Studio lays plates out at bed size x 1.2
 CORE_NS = "{http://schemas.microsoft.com/3dmanufacturing/core/2015/02}"
 
@@ -127,9 +130,30 @@ def main() -> None:
     cli = args.app / "Contents" / "MacOS" / "BambuStudio"
     profiles = Profiles(args.app / "Contents" / "Resources" / "profiles" / "BBL")
 
-    (OUT / "templates").mkdir(parents=True, exist_ok=True)
-    for old in (OUT / "templates").glob("*.json"):
-        old.unlink()
+    # Build everything into a staging dir and swap it in only once the whole run succeeded,
+    # so a failure never leaves half-deleted templates behind.
+    OUT.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="bambu-templates-", dir=OUT) as staging:
+        index = generate(cli, profiles, Path(staging))
+        missing = [k for k in REQUIRED if k not in index]
+        if missing or len(index) < MIN_PRINTERS:
+            raise SystemExit(f"only {len(index)} printers generated (need {MIN_PRINTERS}), "
+                             f"missing {missing}; templates left unchanged")
+        (Path(staging) / "printers.json").write_text(json.dumps(index, indent=2) + "\n")
+        old = OUT / "templates.old"
+        shutil.rmtree(old, ignore_errors=True)
+        if (OUT / "templates").exists():
+            (OUT / "templates").rename(old)
+        (Path(staging) / "templates").rename(OUT / "templates")
+        (Path(staging) / "printers.json").replace(OUT / "printers.json")
+        shutil.rmtree(old, ignore_errors=True)
+    print(f"{len(index)} printers, Bambu Studio {bambu_version(args.app)}, "
+          f"profiles {profiles.version}")
+
+
+def generate(cli: Path, profiles: Profiles, staging: Path) -> dict:
+    """Write staging/templates/<key>.json for every eligible printer; return the index."""
+    (staging / "templates").mkdir()
     index = {}
     for name in sorted(profiles.paths["machine"]):
         if not name.endswith(" 0.4 nozzle"):
@@ -168,14 +192,12 @@ def main() -> None:
             raise RuntimeError(f"{name}: unexpected arranged items {items}")
         center = [round(items[0][0], 3), round(items[0][1], 3)]
         key = key_for(model)
-        (OUT / "templates" / f"{key}.json").write_text(json.dumps(settings, indent=4) + "\n")
+        (staging / "templates" / f"{key}.json").write_text(json.dumps(settings, indent=4) + "\n")
         index[key] = {"name": model, "printer_model": model, "bed": bed, "center": center,
                       "app_version": app.removeprefix("BambuStudio-"),
                       "process": proc_name, "filament": fil_name}
         print(f"{key}: {model} bed {bed} centre {center} {proc_name} / {fil_name}")
-    (OUT / "printers.json").write_text(json.dumps(index, indent=2) + "\n")
-    print(f"{len(index)} printers, Bambu Studio {bambu_version(args.app)}, "
-          f"profiles {profiles.version}")
+    return index
 
 
 if __name__ == "__main__":
