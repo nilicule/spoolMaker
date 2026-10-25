@@ -11,12 +11,10 @@ Dev-only (macOS, Bambu Studio installed); the app never imports this script.
 from __future__ import annotations
 
 import argparse
-import io
 import json
 import subprocess
 import sys
 import tempfile
-import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -41,26 +39,6 @@ CASES: dict[str, dict[str, str]] = {
 }
 
 
-def for_cli(project: bytes) -> bytes:
-    """The project with the nozzle count the CLI needs on multi-extruder printers (H2D).
-
-    Bambu Studio's GUI fills extruder_nozzle_stats in when it opens a project; the CLI
-    refuses to slice without it ("No valid nozzle found")."""
-    src = zipfile.ZipFile(io.BytesIO(project))
-    buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as out:
-        for info in src.infolist():
-            body = src.read(info.filename)
-            if info.filename == "Metadata/project_settings.config":
-                settings = json.loads(body)
-                if not settings.get("extruder_nozzle_stats"):
-                    n = len(settings["nozzle_diameter"])
-                    settings["extruder_nozzle_stats"] = ["Standard#1"] * n
-                body = json.dumps(settings, indent=4).encode()
-            out.writestr(info, body)
-    return buf.getvalue()
-
-
 def slice_case(cli: Path, query: dict[str, str]) -> tuple[float, float]:
     cfg = from_query(query)
     errors = validate(cfg)
@@ -69,7 +47,7 @@ def slice_case(cli: Path, query: dict[str, str]) -> tuple[float, float]:
     with tempfile.TemporaryDirectory(prefix="spool-calib-") as tmp:
         work = Path(tmp)
         project = work / "spool.3mf"
-        project.write_bytes(for_cli(cache.bambu_project(cfg)))
+        project.write_bytes(cache.bambu_project(cfg))  # the real export, as downloaded
         out = work / "out"
         out.mkdir()
         # The CLI also writes a result.json into its cwd: keep that inside the temp dir.

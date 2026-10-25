@@ -27,6 +27,9 @@ from ..export import mesh_xml
 DATA_DIR = Path(__file__).parent
 DEFAULT_PRINTER = "a1"
 PLATE_GAP = 1.2  # Bambu Studio's plate stride is the bed size x 1.2
+# Nozzle-changer printers whose extruder_nozzle_stats format we have not confirmed (the
+# H2C's right extruder draws from a nozzle rack): left as the template has them.
+NOZZLE_STATS_UNCONFIRMED = frozenset({"h2c"})
 
 
 @dataclass(frozen=True)
@@ -59,7 +62,19 @@ PRINTERS: dict[str, Printer] = _load_printers()
 
 @cache
 def project_settings(key: str) -> bytes:
-    return (DATA_DIR / "templates" / f"{key}.json").read_bytes()
+    """The printer's template, with extruder_nozzle_stats filled in on multi-nozzle printers.
+
+    The templates leave extruder_nozzle_stats empty. Bambu Studio's GUI fills it in when
+    it opens a project, but the CLI refuses to slice a dual-nozzle (H2D-family) project
+    without it ("No valid nozzle found"), so write one standard nozzle per extruder, as the
+    GUI would. Single-nozzle templates are passed through byte for byte."""
+    raw = (DATA_DIR / "templates" / f"{key}.json").read_bytes()
+    settings = json.loads(raw)
+    n = len(settings.get("nozzle_diameter", []))
+    if n < 2 or settings.get("extruder_nozzle_stats") or key in NOZZLE_STATS_UNCONFIRMED:
+        return raw
+    settings["extruder_nozzle_stats"] = ["Standard#1"] * n
+    return (json.dumps(settings, indent=4) + "\n").encode()
 
 
 def plate_offset(printer: Printer, index: int, n_plates: int) -> tuple[float, float]:

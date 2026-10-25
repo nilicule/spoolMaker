@@ -1,5 +1,6 @@
 import io
 import json
+import os
 import subprocess
 import zipfile
 import xml.etree.ElementTree as ET
@@ -17,6 +18,8 @@ from test_export import _edges_closed
 CORE = "{http://schemas.microsoft.com/3dmanufacturing/core/2015/02}"
 PROD = "{http://schemas.microsoft.com/3dmanufacturing/production/2015/06}"
 BAMBU_CLI = Path("/Applications/BambuStudio.app/Contents/MacOS/BambuStudio")
+# Slicing with the real Bambu Studio takes minutes: opt in with SPOOLMAKER_BAMBU_LIVE=1.
+LIVE = os.environ.get("SPOOLMAKER_BAMBU_LIVE") == "1" and BAMBU_CLI.exists()
 REQUIRED = {
     "[Content_Types].xml", "_rels/.rels", "3D/3dmodel.model", "3D/_rels/3dmodel.model.rels",
     "Metadata/project_settings.config", "Metadata/model_settings.config",
@@ -163,3 +166,39 @@ def test_bambu_studio_loads_two_plates(tmp_path):
     log = r.stdout + r.stderr
     assert "is a 3mf, version" in log and "got plate count 2" in log, log[-3000:]
     assert log.count("manifold = yes") == 2
+
+
+def _settings(printer: str) -> dict:
+    return json.loads(_zip(printer).read("Metadata/project_settings.config"))
+
+
+@pytest.mark.parametrize("printer", sorted(PRINTERS))
+def test_extruder_nozzle_stats(printer):
+    """Multi-nozzle exports carry the nozzle stats the CLI needs; single-nozzle exports and
+    the unconfirmed nozzle-changer H2C keep the template's settings byte for byte."""
+    from spoolmaker.bambu import DATA_DIR, NOZZLE_STATS_UNCONFIRMED
+
+    raw = (DATA_DIR / "templates" / f"{printer}.json").read_bytes()
+    exported = _zip(printer).read("Metadata/project_settings.config")
+    n = len(json.loads(raw)["nozzle_diameter"])
+    if n == 1 or printer in NOZZLE_STATS_UNCONFIRMED:
+        assert exported == raw
+    else:
+        got = json.loads(exported)
+        assert got["extruder_nozzle_stats"] == ["Standard#1"] * n
+        assert {k: v for k, v in got.items() if k != "extruder_nozzle_stats"} == {
+            k: v for k, v in json.loads(raw).items() if k != "extruder_nozzle_stats"}
+
+
+@pytest.mark.skipif(not LIVE, reason="set SPOOLMAKER_BAMBU_LIVE=1 (needs Bambu Studio)")
+def test_bambu_cli_slices_h2d_export():
+    """The exported H2D project slices as is (no CLI-only patching), matching the fixture."""
+    import sys
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+    from calibrate_estimate import slice_case
+
+    fixture = json.loads((Path(__file__).parent / "fixtures" / "bambu_grams.json").read_text())
+    case = fixture["default@h2d"]
+    a, b = slice_case(BAMBU_CLI, case["query"])
+    assert a == pytest.approx(case["a_g"], rel=0.01) and b == pytest.approx(case["b_g"], rel=0.01)
