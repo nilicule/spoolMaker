@@ -329,6 +329,18 @@ function commit(name, value) {
   scheduleUpdate();
 }
 
+function resetDefaults() {
+  if (!buildQuery().toString()) return;   // already at defaults
+  if (!window.confirm("Reset every setting to its default?")) return;
+  for (const [name, def] of Object.entries(schema.fields)) model[name] = def.default;
+  applyPreset();
+  lastValid = false;
+  setDownloads(false);
+  syncControls();
+  setColor(DEFAULT_COLOR);   // also writes the URL
+  scheduleUpdate();
+}
+
 function setColor(hex) {
   model.color = hex;
   controls.color.set(hex);
@@ -559,6 +571,7 @@ async function boot() {
   $("dl-b").addEventListener("click", () => download("/api/half/b.stl"));
   $("dl-3mf").addEventListener("click", () => download("/api/spool.3mf"));
   $("share").addEventListener("click", copyShare);
+  $("reset").addEventListener("click", resetDefaults);
   $("exploded").addEventListener("change", placeB);
   requestAnimationFrame(loop);
 
