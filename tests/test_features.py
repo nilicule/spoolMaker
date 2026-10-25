@@ -314,3 +314,23 @@ def test_lightweight_windows_ribs_full_thickness():
     # the windows themselves are open
     win = CrossSection.circle(2.0, 24).translate((r_mid, 0)).rotate(180 / n)
     assert (win ^ sec).is_empty()
+
+
+@pytest.mark.parametrize("pattern", ["none", "honeycomb", "voronoi", "windows"])
+@pytest.mark.parametrize("lightweight", [False, True])
+def test_tag_pocket_full_depth_in_full_thickness_pad(pattern, lightweight):
+    """The pocket is a full-diameter, TAG_DEPTH-deep recess in a full-thickness pad, also
+    where lightweight mode thins the web around it."""
+    cfg = SpoolConfig(pattern=pattern, lightweight=lightweight, label=False, gauge=False,
+                      clip_holes=0, tag_pocket=True, tag_diameter=25)
+    d = dims(cfg)
+    lay = layout(cfg, d)
+    m = build_half(cfg, "b")
+    floor_t = d.t - TAG_DEPTH
+    want = math.pi * (cfg.tag_diameter / 2 + 0.2) ** 2 * TAG_DEPTH
+    recess = lay.tag_pocket.extrude(TAG_DEPTH).translate((0, 0, floor_t))
+    assert (recess - m).volume() == pytest.approx(want, rel=0.05)    # pocket is empty
+    floor = lay.tag_pocket.extrude(floor_t)
+    assert (floor - m).volume() == pytest.approx(0, abs=1e-3)       # floor is solid
+    ring = (lay.tag - lay.tag_pocket).extrude(d.t)
+    assert (ring - m).volume() == pytest.approx(0, abs=1e-3)        # pad wall full height
