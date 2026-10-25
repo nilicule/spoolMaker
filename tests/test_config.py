@@ -38,6 +38,10 @@ def test_coil_too_narrow_for_bore():
     assert any("inner diameter" in e for e in validate(cfg))
 
 
+def test_default_bore_is_53():
+    assert SpoolConfig().bore_diameter == 53.0 and not validate(SpoolConfig())
+
+
 def test_thin_lock_wall_rejected():
     cfg = SpoolConfig(refill="custom", coil_inner_diameter=70.0, bore_diameter=58.0,
                       coil_clearance=2.0, lock_clearance=0.6)

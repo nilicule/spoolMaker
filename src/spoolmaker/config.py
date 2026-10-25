@@ -36,7 +36,7 @@ PRESETS: dict[str, RefillPreset] = {
 @dataclass(frozen=True)
 class SpoolConfig:
     outer_diameter: float = 200.0
-    bore_diameter: float = 55.0
+    bore_diameter: float = 53.0
     refill: str = "bambu"
     coil_inner_diameter: float = 82.0
     coil_width: float = 60.0
