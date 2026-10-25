@@ -4,7 +4,7 @@ services:
     build: .
     image: spoolmaker:latest
     ports:
-      - "127.0.0.1:8000:8000"   # reach it through a reverse proxy on the same host
+      - "127.0.0.1:5009:5009"   # reach it through a reverse proxy on the same host
     restart: unless-stopped
     environment:
       WEB_CONCURRENCY: "2"      # gunicorn workers (each has its own model cache)

@@ -26,14 +26,14 @@ Then open http://127.0.0.1:5000. Set the `PORT` environment variable to use anot
 
 ## Deploying
 
-The image runs the app under gunicorn on port 8000 as a non-root user. Commands are shown for podman; docker takes the same arguments (`docker build`, `docker run`, `docker compose`).
+The image runs the app under gunicorn on port 5009 as a non-root user. Commands are shown for podman; docker takes the same arguments (`docker build`, `docker run`, `docker compose`).
 
 ```
 podman build --format docker -t spoolmaker .
-podman run -d --name spoolmaker -p 127.0.0.1:8000:8000 --restart unless-stopped spoolmaker
+podman run -d --name spoolmaker -p 127.0.0.1:5009:5009 --restart unless-stopped spoolmaker
 ```
 
-`--format docker` keeps the image's `HEALTHCHECK` (it polls `/healthz`); podman's default OCI format drops it with a warning. Docker builds need no flag. Rootless podman can publish port 8000 (or any port from 1024 up) without extra setup. Or with compose (`podman compose` uses docker-compose or podman-compose, whichever is installed):
+`--format docker` keeps the image's `HEALTHCHECK` (it polls `/healthz`); podman's default OCI format drops it with a warning. Docker builds need no flag. Rootless podman can publish port 5009 (or any port from 1024 up) without extra setup. Or with compose (`podman compose` uses docker-compose or podman-compose, whichever is installed):
 
 ```
 podman compose up -d --build
@@ -44,7 +44,7 @@ Rootless podman has no daemon, so `--restart` (and compose's `restart:`) only ta
 ```
 [Container]
 Image=localhost/spoolmaker:latest
-PublishPort=127.0.0.1:8000:8000
+PublishPort=127.0.0.1:5009:5009
 Environment=WEB_CONCURRENCY=2
 
 [Service]
@@ -59,7 +59,7 @@ then `systemctl --user daemon-reload && systemctl --user start spoolmaker` (agai
 Settings (environment variables):
 
 - `WEB_CONCURRENCY` - gunicorn workers (default 2). Each worker keeps its own cache of built models.
-- `PORT` - listen port inside the container (default 8000).
+- `PORT` - listen port inside the container (default 5009).
 - `TRUST_PROXY` - `1` (the image default) trusts one proxy hop's `X-Forwarded-For`, `-Proto`, `-Host` and `-Prefix` headers (`-Prefix` is ignored when `BASE_PATH` is set, and only a plain path such as `/spool` is accepted). Only safe when the app is reachable solely through that proxy, which must set or strip these headers; keep the published port bound to `127.0.0.1` (as above) and set `TRUST_PROXY=0` if clients can reach the app directly.
 - `BASE_PATH` - see below.
 
@@ -70,7 +70,7 @@ Every URL in the page is relative to a `<base href>` the server fills in, so the
 ```
 location = /spool { return 301 /spool/; }
 location /spool/ {
-    proxy_pass http://127.0.0.1:8000/;      # trailing slash strips /spool
+    proxy_pass http://127.0.0.1:5009/;      # trailing slash strips /spool
     proxy_set_header Host $host;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
@@ -86,7 +86,7 @@ Caddy:
 n2g.dev {
     redir /spool /spool/
     handle_path /spool/* {
-        reverse_proxy 127.0.0.1:8000 {
+        reverse_proxy 127.0.0.1:5009 {
             header_up X-Forwarded-Prefix /spool
         }
     }
@@ -99,7 +99,7 @@ If the proxy forwards the full path instead (`/spool/api/...` reaches the app un
 
 ```
 location /spool/ {
-    proxy_pass http://127.0.0.1:8000;       # no trailing slash: the path stays /spool/...
+    proxy_pass http://127.0.0.1:5009;       # no trailing slash: the path stays /spool/...
     proxy_set_header Host $host;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;

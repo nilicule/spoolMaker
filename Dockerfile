@@ -22,12 +22,12 @@ ENV PATH=/app/.venv/bin:$PATH \
     PYTHONUNBUFFERED=1 \
     MPLCONFIGDIR=/tmp/matplotlib \
     TRUST_PROXY=1 \
-    PORT=8000 \
+    PORT=5009 \
     WEB_CONCURRENCY=2
 USER 10001
 WORKDIR /app
-EXPOSE 8000
+EXPOSE 5009
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-    CMD ["python", "-c", "import os, urllib.request; urllib.request.urlopen('http://127.0.0.1:%s/healthz' % os.environ.get('PORT', '8000'), timeout=4)"]
+    CMD ["python", "-c", "import os, urllib.request; urllib.request.urlopen('http://127.0.0.1:%s/healthz' % os.environ.get('PORT', '5009'), timeout=4)"]
 CMD exec gunicorn --bind "0.0.0.0:${PORT}" --workers "${WEB_CONCURRENCY}" --threads 4 \
     --timeout 60 --no-control-socket --access-logfile - "spoolmaker.app:create_app()"
