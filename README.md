@@ -13,7 +13,7 @@ A designer for two-part, twist-lock, Bambu AMS-compatible filament spools that h
 - Engraved label outline with custom text
 - Filament gauge ticks by material
 - Clip holes and an optional NFC tag pocket (for tracking with a phone; the AMS does not read it)
-- Live three.js preview, mass and fit stats, STL per half or a combined 3MF
+- Live three.js preview with an animated exploded view, a slicer-like filament estimate, fit stats, STL per half or a combined 3MF
 - "Open in Bambu Studio": a Bambu Studio project with each half on its own plate
 
 ## Run
@@ -37,6 +37,16 @@ uv run pytest
 - If the halves are too tight or too loose when twisting together, adjust the twist-lock clearance setting and reprint.
 - The Bambu refill preset dimensions are community-sourced, not from an official spec. Measure your coil and use the custom preset if they differ.
 
+## Filament estimate
+
+The stats bar shows how much filament each half takes, estimated the way a slicer would print it with the selected Bambu printer's "0.20mm Standard" profile and Bambu PLA Basic (2 walls, 15% grid infill, 5 top and 3 bottom shell layers). Each half is cut into 0.2 mm layers and every layer is split into walls, solid infill (top, bottom and vertical shells, and pockets too small for sparse infill), internal bridges and sparse infill with its anchors; all factors come from the profile (`src/spoolmaker/estimate.py`). With another print material the same volume is weighed at that material's density. The solid (100% infill) weight is shown underneath for comparison.
+
+The estimate is checked against what Bambu Studio's own slicer reports for the app's Bambu project, for a matrix of designs on the A1 and H2D: it stays within 6% (currently about 2%). The reference numbers are in `tests/fixtures/bambu_grams.json`; to regenerate them after a Bambu Studio or profile update (macOS, Bambu Studio installed; slices with the CLI, takes a few minutes):
+
+```
+uv run python scripts/calibrate_estimate.py [--app /Applications/BambuStudio.app] [--only default@a1]
+```
+
 ## Open in Bambu Studio
 
 The "Open in Bambu Studio" button downloads a Bambu Studio project 3MF with half A on plate 1 and half B on plate 2. Open the file (double-click, or File > Open Project) to launch Bambu Studio with both plates ready. A web page cannot start Bambu Studio directly, so this is a download.
@@ -58,5 +68,7 @@ uv run python scripts/make_bambu_templates.py [--app /Applications/BambuStudio.a
 - `src/spoolmaker/bambu/` - Bambu Studio project export and per-printer settings templates
 - `scripts/make_bambu_templates.py` - regenerates those templates (dev-only)
 - `src/spoolmaker/filament.py`, `stats.py` - mass and fit calculations
+- `src/spoolmaker/estimate.py` - slicer-like filament estimate
+- `scripts/calibrate_estimate.py` - re-slices the estimate's reference designs with Bambu Studio (dev-only)
 - `src/spoolmaker/static/` - web UI and three.js preview
 - `tests/` - pytest suite, including printability checks
