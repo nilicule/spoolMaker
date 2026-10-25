@@ -30,6 +30,12 @@ Then open http://127.0.0.1:5000. Set the `PORT` environment variable to use anot
 uv run pytest
 ```
 
+Tests that slice with a locally installed Bambu Studio (macOS, slow) are skipped unless you opt in:
+
+```
+SPOOLMAKER_BAMBU_LIVE=1 uv run pytest
+```
+
 ## Printing notes
 
 - Print each half flange-down, with no supports. The STLs are already in print pose.

@@ -4,6 +4,7 @@ tests/fixtures/bambu_grams.json comes from scripts/calibrate_estimate.py (Bambu 
 """
 
 import json
+import os
 import subprocess
 import time
 from pathlib import Path
@@ -22,6 +23,8 @@ from spoolmaker.stats import stats
 FIXTURES = json.loads((Path(__file__).parent / "fixtures" / "bambu_grams.json").read_text())
 TOLERANCE = 0.06
 BAMBU_CLI = Path("/Applications/BambuStudio.app/Contents/MacOS/BambuStudio")
+# Re-slicing with the real Bambu Studio is slow: opt in with SPOOLMAKER_BAMBU_LIVE=1.
+LIVE = os.environ.get("SPOOLMAKER_BAMBU_LIVE") == "1" and BAMBU_CLI.exists()
 
 
 def _errors(case: dict) -> dict[str, float]:
@@ -109,7 +112,7 @@ def test_estimate_is_fast_for_default():
         assert time.perf_counter() - t < 0.5, f"half {h} took too long"
 
 
-@pytest.mark.skipif(not BAMBU_CLI.exists(), reason="Bambu Studio not installed")
+@pytest.mark.skipif(not LIVE, reason="set SPOOLMAKER_BAMBU_LIVE=1 (needs Bambu Studio)")
 def test_live_bambu_studio_matches_fixture(tmp_path):
     """Re-slice the default case with the installed Bambu Studio (slow, dev machines only)."""
     import sys
