@@ -13,7 +13,9 @@ COPY LICENSE README.md ./
 COPY src ./src
 RUN uv sync --frozen --no-dev --no-editable
 
-FROM python:3.13-slim-trixie
+# Same CPython patch release as the builder image (check with
+# `podman run --rm <builder image> python -V`); bump both tags together.
+FROM python:3.13.16-slim-trixie
 RUN useradd --system --uid 10001 --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin spoolmaker
 COPY --from=builder /app/.venv /app/.venv
 ENV PATH=/app/.venv/bin:$PATH \
@@ -23,7 +25,7 @@ ENV PATH=/app/.venv/bin:$PATH \
     PORT=8000 \
     WEB_CONCURRENCY=2
 USER 10001
-WORKDIR /tmp
+WORKDIR /app
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
     CMD ["python", "-c", "import os, urllib.request; urllib.request.urlopen('http://127.0.0.1:%s/healthz' % os.environ.get('PORT', '8000'), timeout=4)"]
