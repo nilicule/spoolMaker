@@ -28,7 +28,11 @@ _RELS = (
 
 
 def mesh_arrays(m: Manifold) -> tuple[np.ndarray, np.ndarray]:
-    """Export-ready mesh: vertices welded by float32 position, degenerate triangles dropped."""
+    """Export-ready mesh: vertices welded by float32 position, collapsed triangles dropped.
+
+    Only triangles with a repeated vertex index (after the weld) are removed. Colinear
+    zero-area slivers are kept: they close T-junctions and dropping them opens cracks.
+    """
     mesh = m.to_mesh()
     verts = np.ascontiguousarray(mesh.vert_properties[:, :3], dtype=np.float32)
     tris = np.asarray(mesh.tri_verts, dtype=np.int64)
@@ -36,9 +40,6 @@ def mesh_arrays(m: Manifold) -> tuple[np.ndarray, np.ndarray]:
     tris = inverse.reshape(-1)[tris]
     keep = (tris[:, 0] != tris[:, 1]) & (tris[:, 1] != tris[:, 2]) & (tris[:, 2] != tris[:, 0])
     tris = tris[keep]
-    tv = uniq.astype(np.float64)[tris]
-    cross = np.cross(tv[:, 1] - tv[:, 0], tv[:, 2] - tv[:, 0])
-    tris = tris[np.any(cross != 0, axis=1)]
     used, remap = np.unique(tris, return_inverse=True)
     return (
         np.ascontiguousarray(uniq[used], dtype=np.float32),
@@ -61,7 +62,7 @@ def to_stl(m: Manifold) -> bytes:
 
 def _object_xml(oid: int, name: str, m: Manifold) -> str:
     verts, tris = mesh_arrays(m)
-    vs = "".join(f'<vertex x="{x:.6g}" y="{y:.6g}" z="{z:.6g}"/>' for x, y, z in verts.tolist())
+    vs = "".join(f'<vertex x="{x:.9g}" y="{y:.9g}" z="{z:.9g}"/>' for x, y, z in verts.tolist())
     ts = "".join(f'<triangle v1="{a}" v2="{b}" v3="{c}"/>' for a, b, c in tris.tolist())
     return (
         f'<object id="{oid}" name={quoteattr(name)} type="model"><mesh>'
