@@ -84,8 +84,9 @@ RANGES: dict[str, tuple[float, float]] = {
     "label_width": (20.0, 80.0),
     "label_height": (10.0, 30.0),
     "clip_holes": (0, 8),
-    # 3.0 still leaves 1.5 mm to both edges of the 6 mm lightweight rim.
-    "clip_hole_diameter": (2.0, 3.0),
+    # 2.9 leaves >= 1.5 mm to both edges of the 6 mm lightweight rim, measured to the
+    # faceted outer edge (3.0 would leave ~1.47 mm there).
+    "clip_hole_diameter": (2.0, 2.9),
     "lock_clearance": (0.15, 0.6),
 }
 
