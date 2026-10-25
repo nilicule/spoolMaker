@@ -44,8 +44,6 @@ const FIELD_META = {
     help: "Filament the gauge ticks are calibrated for." },
   clip_holes: { label: "Filament clip hole pairs", group: "Extras", step: 1,
     help: "Each clip is two holes side by side: weave the filament end down through one and back up the other." },
-  clip_hole_diameter: { label: "Clip hole size", unit: "mm", group: "Extras", step: 0.1,
-    help: "Bigger holes make threading the filament easier (filament is 1.75 mm)." },
   tag_pocket: { label: "NFC tag pocket", group: "Extras" },
   tag_diameter: { label: "Tag diameter", unit: "mm", group: "Extras" },
   lock_clearance: { label: "Twist-lock clearance", unit: "mm", group: "Print", step: 0.01,
@@ -325,7 +323,6 @@ function syncControls() {
   controls.label_height?.setDisabled(!model.label);
   controls.gauge_material?.setDisabled(!model.gauge);
   controls.tag_diameter?.setDisabled(!model.tag_pocket);
-  controls.clip_hole_diameter?.setDisabled(!model.clip_holes);
   // the seed only reshuffles voronoi, so hide it for every other pattern
   const seed = document.querySelector('.field[data-field="pattern_seed"]');
   if (seed) seed.hidden = model.pattern !== "voronoi";

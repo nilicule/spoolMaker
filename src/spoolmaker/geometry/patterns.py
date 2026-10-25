@@ -192,11 +192,13 @@ def pattern_cutouts(
     r_out: float,
     seed: int,
     keepouts: CrossSection,
+    solid: CrossSection | None = None,
 ) -> CrossSection:
     """Union of hole shapes inside the annulus r_in..r_out.
 
     Holes keep at least one wall width of material from both annulus
     boundaries and from the keep-outs (windows: MIN_WEB from the boundaries).
+    `solid` is kept clear the same way, but windows add no ribs through it.
     """
     if kind == "none":
         return CrossSection()
@@ -234,8 +236,9 @@ def pattern_cutouts(
     region = CrossSection.circle(r_out - edge, _RING_SEGS) - CrossSection.circle(
         r_in + edge, _RING_SEGS
     )
-    if not keepouts.is_empty():
-        region = region - keepouts.offset(wall, JoinType.Round, 2.0, _ARC_SEGS)
+    for avoid in (keepouts, solid):
+        if avoid is not None and not avoid.is_empty():
+            region = region - avoid.offset(wall, JoinType.Round, 2.0, _ARC_SEGS)
     cs = shapes ^ region
     if kind == "windows":
         # Round the window corners (morphological opening; only ever removes area).

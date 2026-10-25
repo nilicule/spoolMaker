@@ -56,7 +56,6 @@ class SpoolConfig:
     gauge: bool = False
     gauge_material: str = "PLA"
     clip_holes: int = 4  # filament clip hole pairs (two holes each)
-    clip_hole_diameter: float = 2.6
     tag_pocket: bool = False
     tag_diameter: int = 25
     lock_clearance: float = 0.3
@@ -84,9 +83,6 @@ RANGES: dict[str, tuple[float, float]] = {
     "label_width": (20.0, 80.0),
     "label_height": (10.0, 30.0),
     "clip_holes": (0, 8),
-    # 2.9 leaves >= 1.5 mm to both edges of the 6 mm lightweight rim, measured to the
-    # faceted outer edge (3.0 would leave ~1.47 mm there).
-    "clip_hole_diameter": (2.0, 2.9),
     "lock_clearance": (0.15, 0.6),
 }
 

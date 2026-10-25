@@ -12,7 +12,7 @@ A designer for two-part, twist-lock, Bambu AMS-compatible filament spools that h
 - Lightweight mode that thins the flange webs and narrows their solid rim and hub ring
 - Engraved label outline with custom text
 - Filament gauge ticks by material
-- Filament clip hole pairs with an adjustable hole size (weave the filament end down through one hole and back up the other) and an optional NFC tag pocket (for tracking with a phone; the AMS does not read it)
+- Filament clip hole pairs (weave the filament end down through one hole and back up the other) and an optional NFC tag pocket (for tracking with a phone; the AMS does not read it)
 - Live three.js preview with an animated exploded view, a slicer-like filament estimate, fit stats, STL per half or a combined 3MF
 - "Open in Bambu Studio": a Bambu Studio project with each half on its own plate
 

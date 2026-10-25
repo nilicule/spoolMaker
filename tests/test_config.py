@@ -120,13 +120,7 @@ def test_defaults_lightweight_no_label_no_gauge():
     assert to_query(SpoolConfig()) == {}
 
 
-def test_clip_hole_diameter_field():
-    assert from_query({}).clip_hole_diameter == 2.6  # links from before the field existed
-    assert from_query({"clip_hole_diameter": "2.3"}).clip_hole_diameter == 2.3
-    assert from_query({"clip_hole_diameter": "9"}).clip_hole_diameter == 2.9
-    assert from_query({"clip_hole_diameter": "1"}).clip_hole_diameter == 2.0
-    assert from_query({"clip_hole_diameter": "nan"}).clip_hole_diameter == 2.6
-    f = config_schema()["fields"]["clip_hole_diameter"]
-    assert f == {"type": "float", "default": 2.6, "min": 2.0, "max": 2.9}
-    assert "clip_hole_diameter" not in to_query(SpoolConfig())
-    assert to_query(SpoolConfig(clip_hole_diameter=2.9)) == {"clip_hole_diameter": "2.9"}
+def test_clip_hole_diameter_param_ignored():
+    # links from when the hole size was a setting still load
+    assert from_query({"clip_hole_diameter": "2.3"}) == from_query({})
+    assert "clip_hole_diameter" not in config_schema()["fields"]
