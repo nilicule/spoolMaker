@@ -27,6 +27,7 @@ ENGRAVE_DEPTH = 0.6
 LABEL_OUTLINE_W = 0.8
 TAG_DEPTH = 1.0
 CLIP_HOLE_D = 2.2
+CLIP_PAIR_PITCH = 5.0  # centre-to-centre of a clip pair's two holes (~2.8 mm bridge)
 
 TEXT_CAP = 7.0
 TEXT_MARGIN = 2.0  # text keeps this far from the hub ring and the rim
@@ -172,17 +173,42 @@ def layout(cfg: SpoolConfig, d: Dims) -> Layout:
     return Layout(label, text, gauge, tag, keepouts, engrave, tag_pocket)
 
 
-def _clip_holes(cfg: SpoolConfig, d: Dims) -> CrossSection:
+def clip_hole_centres(cfg: SpoolConfig, d: Dims, keepouts: CrossSection | None = None
+                      ) -> list[list[tuple[float, float]]]:
+    """Centres of the filament clip holes, one [left, right] pair per clip.
+
+    `cfg.clip_holes` counts pairs. Pairs are spread evenly with the first centred at
+    45 deg; each pair's two holes sit side by side along the rim (tangentially),
+    CLIP_PAIR_PITCH apart on the rim-centre circle, so the filament can be woven down
+    through one and back up through the other. The keep-outs (label, text, gauge, tag)
+    all lie inside rim_r and the holes sit on the rim, so they practically never meet;
+    a pair that would still overlap one (only the tag pocket's wall can reach into the
+    rim) is skipped rather than rotating the whole set, so the others never move.
+    """
     n = cfg.clip_holes
     if n <= 0:
-        return CrossSection()
+        return []
     r = d.R - d.rim_width / 2  # centred in the solid rim
-    hole = CrossSection.circle(CLIP_HOLE_D / 2, 24)
-    holes = []
+    half = math.asin(CLIP_PAIR_PITCH / (2 * r))  # chord = pitch
+    pairs = []
     for i in range(n):
         a = math.radians(45 + 360 * i / n)
-        holes.append(hole.translate((r * math.cos(a), r * math.sin(a))))
-    return CrossSection.batch_boolean(holes, OpType.Add)
+        pair = [(r * math.cos(a + s * half), r * math.sin(a + s * half)) for s in (-1, 1)]
+        if keepouts is not None and not keepouts.is_empty():
+            holes = CrossSection.batch_boolean(
+                [CrossSection.circle(CLIP_HOLE_D / 2, 24).translate(c) for c in pair], OpType.Add)
+            if not (holes ^ keepouts).is_empty():
+                continue
+        pairs.append(pair)
+    return pairs
+
+
+def _clip_holes(cfg: SpoolConfig, d: Dims, keepouts: CrossSection) -> CrossSection:
+    pairs = clip_hole_centres(cfg, d, keepouts)
+    if not pairs:
+        return CrossSection()
+    hole = CrossSection.circle(CLIP_HOLE_D / 2, 24)
+    return CrossSection.batch_boolean([hole.translate(c) for p in pairs for c in p], OpType.Add)
 
 
 def web_thickness(d: Dims) -> float:
@@ -197,7 +223,7 @@ def cutters(cfg: SpoolConfig, d: Dims, lay: Layout) -> list[Manifold]:
         [
             pattern_cutouts(cfg.pattern, cfg.pattern_density, d.hub_ring_r, d.rim_r,
                             cfg.pattern_seed, lay.keepouts),
-            _clip_holes(cfg, d),
+            _clip_holes(cfg, d, lay.keepouts),
         ],
         OpType.Add,
     )

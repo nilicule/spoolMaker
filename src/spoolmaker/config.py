@@ -55,7 +55,7 @@ class SpoolConfig:
     text: str = ""
     gauge: bool = False
     gauge_material: str = "PLA"
-    clip_holes: int = 4
+    clip_holes: int = 4  # filament clip hole pairs (two holes each)
     tag_pocket: bool = False
     tag_diameter: int = 25
     lock_clearance: float = 0.3
