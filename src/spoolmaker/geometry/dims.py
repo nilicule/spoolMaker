@@ -8,7 +8,7 @@ from ..config import RIM_WIDTH, SpoolConfig
 
 SLEEVE_WALL = 2.4
 HUB_RING = 6.0
-SEAT_GAP = 0.3  # B's sleeve stops short of A's flange; A's core top alone sets the width
+SEAT_GAP = 0.3  # B's sleeve stops short of A's socket floor; the core tops alone set the width
 SEGMENTS = 128
 
 

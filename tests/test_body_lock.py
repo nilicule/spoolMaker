@@ -56,7 +56,7 @@ def test_detent_engages_for_all_clearances(clearance):
 
 
 @pytest.mark.parametrize("clearance", [0.15, 0.6])
-@pytest.mark.parametrize("dz", [0, 5, 20, 40])
+@pytest.mark.parametrize("dz", [0, 5, 9.5])  # engagement is SOCKET_DEPTH = 10 mm
 def test_insertion_path_clear_at_zero_twist(clearance, dz):
     cfg = SpoolConfig(pattern="none", label=False, gauge=False, clip_holes=0, lock_clearance=clearance)
     a = build_half(cfg, "a")
@@ -65,7 +65,7 @@ def test_insertion_path_clear_at_zero_twist(clearance, dz):
 
 def test_pocket_roof_chamfered_45():
     from spoolmaker.geometry.dims import dims
-    from spoolmaker.geometry.lock import LUG_AXIAL, channel_r
+    from spoolmaker.geometry.lock import LUG_AXIAL, channel_r, socket_floor_z
 
     d = dims(CFG)
     a = build_half(CFG, "a")
@@ -73,7 +73,7 @@ def test_pocket_roof_chamfered_45():
     # locked lug angle (30 deg). With a 45 deg chamfer the roof is lower at the wall,
     # so the probe hits material there.
     r_wall = channel_r(d)
-    z = d.t + LUG_AXIAL + d.lock_clearance - 0.3
+    z = socket_floor_z(d) + LUG_AXIAL + d.lock_clearance - 0.3
     probe = (
         Manifold.cube((0.3, 0.5, 0.2), center=True)
         .translate((r_wall - 0.25, 0, z))
@@ -82,16 +82,37 @@ def test_pocket_roof_chamfered_45():
     assert (a ^ probe).volume() > 0.01
 
 
-def test_only_core_top_seats_the_halves():
+def test_only_core_tops_seat_the_halves():
     from spoolmaker.geometry.body import tube
     from spoolmaker.geometry.dims import SEAT_GAP, dims
+    from spoolmaker.geometry.lock import core_height_a, socket_floor_z
 
     d = dims(CFG)
     a, b = assembled(CFG)
-    # B's sleeve tip stops SEAT_GAP short of A's flange inner face ...
-    gap = tube(SEAT_GAP - 0.02, d.r_bore - 0.5, d.r_core_in - 0.01, d.seg).translate((0, 0, d.t + 0.01))
+    z_floor = socket_floor_z(d)
+    # B's sleeve tip stops SEAT_GAP short of A's socket floor ...
+    gap = tube(SEAT_GAP - 0.02, d.r_bore - 0.5, d.r_core_in - 0.01, d.seg).translate((0, 0, z_floor + 0.01))
     assert (b ^ gap).volume() == pytest.approx(0, abs=1e-6)
-    # ... while A's core top reaches B's flange inner face.
-    top = tube(0.02, d.r_core_in + 0.01, d.r_core_out - 0.01, d.seg).translate(
-        (0, 0, d.t + d.inner_width - 0.02))
-    assert (a ^ top).volume() > 0
+    # ... and not much more: the tip is right there (gap ~= SEAT_GAP).
+    tip = tube(0.02, d.r_bore + 0.01, d.r_sleeve_out - 0.01, d.seg).translate((0, 0, z_floor + SEAT_GAP + 0.01))
+    assert (b ^ tip).volume() > 0
+    # A's core top meets B's core top at the joint: both reach it, with zero-volume overlap.
+    z_joint = d.t + core_height_a(d)
+    below = tube(0.02, d.r_core_in + 0.01, d.r_core_out - 0.01, d.seg).translate((0, 0, z_joint - 0.02))
+    above = tube(0.02, d.r_core_in + 0.01, d.r_core_out - 0.01, d.seg).translate((0, 0, z_joint))
+    assert (a ^ below).volume() > 0
+    assert (b ^ above).volume() > 0
+    assert (a ^ above).volume() == pytest.approx(0, abs=1e-6)
+    assert (b ^ below).volume() == pytest.approx(0, abs=1e-6)
+
+
+@pytest.mark.parametrize("cfg", [CFG, SpoolConfig(), SpoolConfig(coil_width=40.0, flange_thickness=5.0),
+                                 SpoolConfig(coil_width=60.0, flange_thickness=2.0, lightweight=True)])
+def test_halves_roughly_equal_height(cfg):
+    from spoolmaker.geometry.lock import SOCKET_DEPTH
+
+    ha, hb = (build_half(cfg, h).bounding_box() for h in "ab")
+    za, zb = ha[5] - ha[2], hb[5] - hb[2]
+    assert abs(za - zb) <= 1.0
+    cap = cfg.flange_thickness + cfg.inner_width / 2 + SOCKET_DEPTH / 2 + 0.01
+    assert za <= cap and zb <= cap

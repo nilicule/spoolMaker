@@ -1,4 +1,9 @@
-"""Bayonet twist-lock: lugs on half B's sleeve tip, channels + pocket in half A's core.
+"""Bayonet twist-lock: lugs on half B's sleeve tip, channels + pocket in half A's socket.
+
+The halves are male/female and roughly equal height. Half A's core ends in a socket
+(SOCKET_DEPTH deep, bore r_core_in) at its top; half B's shorter core carries a sleeve
+that plugs into it. The core tops of the two halves meet at the joint, which alone sets
+the overall width; B's sleeve tip stops SEAT_GAP short of A's socket floor.
 
 Both are expressed in each half's print pose. Lugs are centred on angles
 i * 360/LUGS, which map onto themselves when half B is flipped about X, so
@@ -21,6 +26,22 @@ LUG_AXIAL = 4.0
 TWIST_DEG = 30
 DETENT_INTERFERENCE = 0.25  # radial overlap of ridge tip with the lug, independent of clearance
 DETENT_ARC = 1.5  # mm of arc length the detent ridge occupies
+SOCKET_DEPTH = 10.0  # engagement length E of B's sleeve in A's socket
+
+
+def core_height_a(d: Dims) -> float:
+    """Half A's core height above its flange inner face (includes the socket)."""
+    return (d.inner_width + SOCKET_DEPTH) / 2
+
+
+def core_height_b(d: Dims) -> float:
+    """Half B's core tube height above its flange inner face (excludes the sleeve)."""
+    return (d.inner_width - SOCKET_DEPTH) / 2
+
+
+def socket_floor_z(d: Dims) -> float:
+    """z of A's socket floor in A's print pose (= assembled frame)."""
+    return d.t + core_height_a(d) - SOCKET_DEPTH
 
 
 def _sector(profile: list[tuple[float, float]], start_deg: float, arc_deg: float, seg: int) -> Manifold:
@@ -43,7 +64,7 @@ def channel_r(d: Dims) -> float:
 
 def lugs(d: Dims) -> Manifold:
     """Lugs at the free tip of B's sleeve, underside chamfered 45 deg (print pose)."""
-    z1 = d.t + d.inner_width - SEAT_GAP
+    z1 = d.t + core_height_b(d) + SOCKET_DEPTH - SEAT_GAP
     z0 = z1 - LUG_AXIAL
     r_in = d.r_sleeve_out - d.sleeve_wall / 2  # overlap into the sleeve wall
     r_out = d.r_sleeve_out + LUG_RADIAL
@@ -56,14 +77,15 @@ def lugs(d: Dims) -> Manifold:
 
 
 def lock_cuts(d: Dims) -> Manifold:
-    """Material to remove from half A's core: axial channels, pocket, minus detent ridges."""
+    """Material to remove from half A's socket: axial channels from A's core top down to
+    the socket floor, pocket at the socket bottom, minus detent ridges."""
     r_out = channel_r(d)
     r_in = d.r_core_in - 0.5  # start inside the empty hole for a clean cut
     clr = _deg(d.lock_clearance, r_out)
     half_arc = LUG_ARC_DEG / 2
-    z0 = d.t
-    z_top = d.t + d.inner_width + 1.0
-    z_pocket = d.t + SEAT_GAP + LUG_AXIAL + d.lock_clearance
+    z0 = socket_floor_z(d)
+    z_top = d.t + core_height_a(d) + 1.0
+    z_pocket = z0 + SEAT_GAP + LUG_AXIAL + d.lock_clearance
     pocket_profile = _pocket_profile(d, r_in, r_out)
     bump_arc = _deg(DETENT_ARC, r_out)
 
@@ -87,9 +109,10 @@ def _pocket_profile(d: Dims, r_in: float, r_wall: float) -> list[tuple[float, fl
     """(r, z) profile of the pocket; its roof is a 45 deg chamfer parallel to the lug's
     chamfered face (offset by lock_clearance), so pull load is face contact and the roof
     prints without support."""
-    # Lug chamfer face in the assembled frame: r + z = r_sleeve_out + t + SEAT_GAP + LUG_AXIAL.
-    k = d.r_sleeve_out + d.t + SEAT_GAP + LUG_AXIAL + d.lock_clearance * math.sqrt(2)
-    return [(r_in, d.t), (r_wall, d.t), (r_wall, k - r_wall), (r_in, k - r_in)]
+    # Lug chamfer face in the assembled frame: r + z = r_sleeve_out + z_floor + SEAT_GAP + LUG_AXIAL.
+    z_floor = socket_floor_z(d)
+    k = d.r_sleeve_out + z_floor + SEAT_GAP + LUG_AXIAL + d.lock_clearance * math.sqrt(2)
+    return [(r_in, z_floor), (r_wall, z_floor), (r_wall, k - r_wall), (r_in, k - r_in)]
 
 
 def _detent(r_wall: float, r_tip: float, a0: float, a1: float, z0: float, z1: float) -> Manifold:

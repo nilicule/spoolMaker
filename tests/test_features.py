@@ -210,18 +210,62 @@ def test_lightweight_engravings_do_not_break_through():
 
 
 def test_lightweight_core_pockets_half_a():
+    from spoolmaker.geometry.features import CORE_POCKET_GAP
+    from spoolmaker.geometry.lock import core_height_a
+
     cfg = SpoolConfig(pattern="none", lightweight=True)
     d = dims(cfg)
     heavy = build_half(SpoolConfig(pattern="none"), "a")
     light = build_half(cfg, "a")
     # Core section near the top end loses material; the core outer and inner skins stay.
-    z = d.t + d.inner_width - 2
+    z = d.t + core_height_a(d) - 2
     assert light.slice(z).area() < heavy.slice(z).area() * 0.8
     outer_skin = CrossSection.circle(d.r_core_out, d.seg) - CrossSection.circle(d.r_core_out - 1.1, d.seg)
     assert (outer_skin ^ heavy.slice(z)).area() - (outer_skin ^ light.slice(z)).area() < 1e-2
     # pockets are blind: the bottom of the core is untouched
-    zb = d.t + 5.0
+    zb = d.t + CORE_POCKET_GAP / 2
     assert light.slice(zb).area() == pytest.approx(heavy.slice(zb).area(), rel=1e-6)
+
+
+def test_lightweight_core_pockets_half_b():
+    from spoolmaker.geometry.features import CORE_POCKET_GAP
+    from spoolmaker.geometry.lock import core_height_b
+
+    cfg = SpoolConfig(pattern="none", lightweight=True)
+    d = dims(cfg)
+    heavy = build_half(SpoolConfig(pattern="none"), "b")
+    light = build_half(cfg, "b")
+    z = d.t + core_height_b(d) - 2
+    assert light.slice(z).area() < heavy.slice(z).area() * 0.8
+    outer_skin = CrossSection.circle(d.r_core_out, d.seg) - CrossSection.circle(d.r_core_out - 1.1, d.seg)
+    assert (outer_skin ^ heavy.slice(z)).area() - (outer_skin ^ light.slice(z)).area() < 1e-2
+    bore_skin = CrossSection.circle(d.r_sleeve_out + 1.1, d.seg) - CrossSection.circle(d.r_bore, d.seg)
+    assert (bore_skin ^ heavy.slice(z)).area() - (bore_skin ^ light.slice(z)).area() < 1e-2
+    zb = d.t + CORE_POCKET_GAP / 2
+    assert light.slice(zb).area() == pytest.approx(heavy.slice(zb).area(), rel=1e-6)
+    # the sleeve above the core is untouched
+    zs = d.t + core_height_b(d) + 2
+    assert light.slice(zs).area() == pytest.approx(heavy.slice(zs).area(), rel=1e-6)
+
+
+def test_lightweight_core_pockets_closed_in_assembly():
+    """Each half's core pockets open only onto the other half's core end: at the joint
+    the material they remove lies strictly inside the core wall, clear of the outer skin
+    and of the lock channels / bore, so the assembled spool shows no openings."""
+    from spoolmaker.geometry.features import CORE_SKIN
+    from spoolmaker.geometry.lock import channel_r, core_height_a
+
+    cfg = SpoolConfig(pattern="none", lightweight=True)
+    d = dims(cfg)
+    a, b = assembled(cfg)
+    ah, bh = assembled(SpoolConfig(pattern="none"))
+    z = d.t + core_height_a(d)
+    inside = CrossSection.circle(d.r_core_out - CORE_SKIN + 0.05, d.seg) - CrossSection.circle(
+        channel_r(d) + CORE_SKIN - 0.05, d.seg)  # 0.05: facet sagitta
+    for zz in (z - 0.5, z + 0.5):
+        missing = (ah + bh).slice(zz) - (a + b).slice(zz)
+        assert missing.area() > 10.0
+        assert (missing - inside).area() < 1e-3
 
 
 def test_build_half_performance():
