@@ -8,3 +8,6 @@ __pycache__/
 docs/superpowers/
 .claude/
 CLAUDE.md
+dist/
+result.json
+.DS_Store

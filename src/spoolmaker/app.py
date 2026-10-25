@@ -29,7 +29,7 @@ def geometry_version() -> str:
     except metadata.PackageNotFoundError:
         version = "dev"
     h = hashlib.sha256(version.encode())
-    files = [PKG_DIR / "config.py", PKG_DIR / "export.py",
+    files = [PKG_DIR / "config.py", PKG_DIR / "export.py", PKG_DIR / "filament.py",
              *sorted((PKG_DIR / "geometry").glob("*.py")),
              *sorted((PKG_DIR / "bambu").rglob("*.py")), *sorted((PKG_DIR / "bambu").rglob("*.json"))]
     for f in files:
