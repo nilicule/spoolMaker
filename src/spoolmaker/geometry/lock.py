@@ -2,8 +2,9 @@
 
 The halves are male/female and roughly equal height. Both cores are thin tubes. Half A's
 tube ends in a socket (SOCKET_DEPTH deep, bore r_socket_in) at its top; half B's shorter
-tube carries a sleeve, bridged inward from the tube top, that plugs into it. The core tops of the two halves meet at the joint, which alone sets
-the overall width; B's sleeve tip stops SEAT_GAP short of A's socket floor.
+tube carries a sleeve, bridged inward from the tube top, that plugs into it. The core
+tops of the two halves meet at the joint, which alone sets the overall width; B's sleeve
+tip stops SEAT_GAP short of A's socket floor.
 
 Both are expressed in each half's print pose. Lugs are centred on angles
 i * 360/LUGS, which map onto themselves when half B is flipped about X, so

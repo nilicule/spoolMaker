@@ -9,8 +9,9 @@ from ..config import MIN_LOCK_WALL, RIM_WIDTH, RIM_WIDTH_LIGHT, SpoolConfig
 SLEEVE_WALL = 2.4
 TUBE_WALL = 3.0  # plain core tube wall
 LUG_RADIAL = 1.4  # radial reach of B's lugs (and depth of A's channels into the socket wall)
-# Half A's socket wall: channel depth (measured from the socket bore) plus the wall left
-# behind the channels and pocket.
+# Half A's socket wall (top SOCKET_DEPTH of its tube): channel depth (measured from the
+# socket bore) plus the wall left behind the channels and pocket. Thicker than the tube;
+# a 45 deg chamfer below the socket makes the inward step.
 SOCKET_WALL = LUG_RADIAL + MIN_LOCK_WALL
 COLLAR_DEPTH = 8.0  # bore collar height above each flange's inner face
 COLLAR_WALL = 2.4
@@ -56,8 +57,7 @@ def dims(cfg: SpoolConfig) -> Dims:
         r_bore=r_bore,
         r_collar=r_bore + COLLAR_WALL,
         r_core_out=r_core_out,
-        # A thicker socket wall continues down the whole tube (no overhanging step).
-        r_tube_a_in=r_core_out - max(TUBE_WALL, SOCKET_WALL),
+        r_tube_a_in=r_core_out - TUBE_WALL,
         r_tube_b_in=r_core_out - TUBE_WALL,
         r_socket_in=r_socket_in,
         sleeve_wall=SLEEVE_WALL,

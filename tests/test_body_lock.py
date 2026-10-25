@@ -7,7 +7,7 @@ from spoolmaker.geometry.build import assembled, build_half
 _PLAIN = dict(pattern="none", label=False, gauge=False, clip_holes=0)
 CFG = SpoolConfig(**_PLAIN)
 # Tightest accepted lock: minimum coil ID for the largest bore with default clearances.
-TIGHT = SpoolConfig(**_PLAIN, refill="custom", coil_inner_diameter=70.0, bore_diameter=58.0)
+TIGHT = SpoolConfig(**_PLAIN, refill="custom", coil_inner_diameter=70.8, bore_diameter=58.0)
 
 
 @pytest.mark.parametrize("half", ["a", "b"])
@@ -123,3 +123,38 @@ def test_halves_roughly_equal_height(cfg):
     assert abs(za - zb) <= 1.0
     cap = cfg.flange_thickness + cfg.inner_width / 2 + SOCKET_DEPTH / 2 + 0.01
     assert za <= cap and zb <= cap
+
+
+def test_socket_wall_thickened_with_chamfered_step():
+    """Only the socket (top SOCKET_DEPTH of A's tube) is thickened, to MIN_LOCK_WALL behind
+    the channels/pocket; below it the tube is TUBE_WALL, joined by a 45 deg chamfer."""
+    import math
+
+    from manifold3d import CrossSection
+
+    from spoolmaker.config import MIN_LOCK_WALL
+    from spoolmaker.geometry.dims import TUBE_WALL, dims
+    from spoolmaker.geometry.lock import channel_r, socket_floor_z
+
+    d = dims(CFG)
+    a = build_half(CFG, "a")
+    assert d.r_core_out - channel_r(d) == pytest.approx(MIN_LOCK_WALL)
+    assert d.r_core_out - d.r_tube_a_in == pytest.approx(TUBE_WALL)
+    z0 = socket_floor_z(d)
+    step = d.r_tube_a_in - d.r_socket_in
+    assert step > 0
+
+    def bore_at(z, angle_deg=90):  # 90 deg: clear of the channels and pockets
+        """Radius of the first material along a ray (0.01 mm steps)."""
+        sec = a.slice(z)
+        c, s = math.cos(math.radians(angle_deg)), math.sin(math.radians(angle_deg))
+        r = d.r_sleeve_in
+        while r < d.r_core_out:
+            if not (CrossSection.square((0.02, 0.02), center=True).translate((r * c, r * s)) ^ sec).is_empty():
+                return r
+            r += 0.01
+        return None
+
+    assert bore_at(z0 + 2) == pytest.approx(d.r_socket_in, abs=0.03)
+    assert bore_at(z0 - step / 2) == pytest.approx(d.r_socket_in + step / 2, abs=0.03)  # 45 deg
+    assert bore_at(z0 - step - 1) == pytest.approx(d.r_tube_a_in, abs=0.03)

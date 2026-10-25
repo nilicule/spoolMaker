@@ -207,7 +207,9 @@ def cutters(cfg: SpoolConfig, d: Dims, lay: Layout) -> list[Manifold]:
         out.append(lay.engrave.extrude(ENGRAVE_DEPTH + 1).translate((0, 0, -1)))
     if not lay.tag_pocket.is_empty():
         out.append(lay.tag_pocket.extrude(TAG_DEPTH + 1).translate((0, 0, d.t - TAG_DEPTH)))
-    if cfg.lightweight:
+    if cfg.lightweight and cfg.pattern != "windows":
+        # (windows: the flange between hub ring and rim is just ribs and margins, which
+        # keep the full thickness)
         web_t = web_thickness(d)
         if web_t < d.t:
             region = _annulus(d.hub_ring_r, d.rim_r, d.seg)

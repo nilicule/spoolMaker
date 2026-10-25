@@ -162,7 +162,7 @@ def _voronoi(cell, wall, r_in, r_out, seed, density):
 
 def _window_ribs(density: float) -> tuple[int, float]:
     """(rib count, rib width mm) for the windows pattern."""
-    return round(_lerp(10, 6, density)), _lerp(10.0, 5.0, density)
+    return round(_lerp(10, 8, density)), _lerp(10.0, 5.0, density)
 
 
 def _windows(r_in, r_out, density, keepouts):
@@ -196,7 +196,7 @@ def pattern_cutouts(
     """Union of hole shapes inside the annulus r_in..r_out.
 
     Holes keep at least one wall width of material from both annulus
-    boundaries and from the keep-outs.
+    boundaries and from the keep-outs (windows: MIN_WEB from the boundaries).
     """
     if kind == "none":
         return CrossSection()
@@ -209,10 +209,12 @@ def pattern_cutouts(
     else:
         cell = _lerp(22, 9, density)
     if kind == "windows":
-        # Ribs are the walls here: keep half a rib width (>= MIN_WEB) from the boundaries.
+        # Ribs are the walls here: keep half a rib width (>= MIN_WEB) around keep-outs.
+        # The hub ring and rim are already solid, so windows only keep MIN_WEB from them.
         wall = max(MIN_WEB, _window_ribs(density)[1] / 2)
+        edge = MIN_WEB
     else:
-        wall = _lerp(3.0, 1.6, density)
+        wall = edge = _lerp(3.0, 1.6, density)
 
     if kind in _POLY_KINDS:
         shapes = _union(_POLY_KINDS[kind](cell, wall, r_in, r_out, seed))
@@ -229,8 +231,8 @@ def pattern_cutouts(
     if shapes.is_empty():
         return CrossSection()
 
-    region = CrossSection.circle(r_out - wall, _RING_SEGS) - CrossSection.circle(
-        r_in + wall, _RING_SEGS
+    region = CrossSection.circle(r_out - edge, _RING_SEGS) - CrossSection.circle(
+        r_in + edge, _RING_SEGS
     )
     if not keepouts.is_empty():
         region = region - keepouts.offset(wall, JoinType.Round, 2.0, _ARC_SEGS)

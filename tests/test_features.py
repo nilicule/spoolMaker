@@ -287,3 +287,23 @@ def test_build_half_performance():
     t0 = time.perf_counter()
     build_half(cfg, "a").to_mesh()  # manifold3d is lazy; force evaluation
     assert time.perf_counter() - t0 < 1.5
+
+
+def test_lightweight_windows_ribs_full_thickness():
+    """Lightweight mode doesn't web-thin the windows pattern: its ribs (and the hub ring
+    and rim) stay full flange thickness."""
+    from spoolmaker.geometry.patterns import _window_ribs
+
+    cfg = SpoolConfig(pattern="windows", pattern_density=1.0, lightweight=True, label=False,
+                      gauge=False, clip_holes=0)
+    d = dims(cfg)
+    sec = build_half(cfg, "a").slice(d.t - 0.1)
+    n, rib = _window_ribs(1.0)
+    r_mid = (d.hub_ring_r + d.rim_r) / 2
+    probe = CrossSection.square((10.0, rib * 0.8), center=True).translate((r_mid, 0))
+    for i in range(n):
+        p = probe.rotate(360 * i / n)
+        assert (p - sec).area() < 1e-3  # rib i is solid right up to the inner face
+    # the windows themselves are open
+    win = CrossSection.circle(2.0, 24).translate((r_mid, 0)).rotate(180 / n)
+    assert (win ^ sec).is_empty()

@@ -1,3 +1,5 @@
+import pytest
+
 from spoolmaker.config import PRESETS, SpoolConfig, config_schema, from_query, to_query, validate
 
 
@@ -50,9 +52,15 @@ def test_thin_lock_wall_rejected():
 
 
 def test_lock_wall_at_minimum_accepted():
-    # Minimum coil ID for the bore with default clearances leaves exactly 1.6 mm.
-    cfg = SpoolConfig(refill="custom", coil_inner_diameter=70.0, bore_diameter=58.0)
+    # With default clearances a 58 mm bore needs a 70.8 mm coil ID: socket wall (channel
+    # depth + MIN_LOCK_WALL), lock clearance and B's sleeve then end exactly at the bore.
+    from spoolmaker.geometry.dims import dims
+
+    cfg = SpoolConfig(refill="custom", coil_inner_diameter=70.8, bore_diameter=58.0)
+    assert dims(cfg).r_sleeve_in == pytest.approx(cfg.bore_diameter / 2)
     assert not any("twist-lock" in e for e in validate(cfg))
+    tighter = SpoolConfig(refill="custom", coil_inner_diameter=70.6, bore_diameter=58.0)
+    assert any("twist-lock" in e for e in validate(tighter))
 
 
 def test_one_kg_must_fit():
@@ -71,7 +79,12 @@ def test_schema_shape():
     assert s["fields"]["outer_diameter"]["min"] == 197.0
     assert "honeycomb" in s["fields"]["pattern"]["choices"]
     assert s["presets"]["bambu"]["verified"] is False
-    assert set(s["limits"]) == {"od", "width", "bore", "rim_width", "max_text", "twist_deg"}
+    assert set(s["limits"]) == {"od", "width", "bore", "rim_width", "rim_width_light", "max_text",
+                                "twist_deg"}
+    from spoolmaker.config import RIM_WIDTH, RIM_WIDTH_LIGHT
+
+    assert s["limits"]["rim_width"] == RIM_WIDTH == 7.0
+    assert s["limits"]["rim_width_light"] == RIM_WIDTH_LIGHT == 6.0
     from spoolmaker.geometry.lock import TWIST_DEG
 
     assert s["limits"]["twist_deg"] == TWIST_DEG

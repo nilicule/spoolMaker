@@ -22,7 +22,10 @@ CONFIGS = {
         tag_pocket=True,
         clip_holes=8,
     ),
-    "custom-coil": SpoolConfig(refill="custom", coil_inner_diameter=70.0, bore_diameter=58.0),
+    "custom-coil": SpoolConfig(refill="custom", coil_inner_diameter=70.8, bore_diameter=58.0),
+    "id70-lightweight-windows": SpoolConfig(refill="custom", coil_inner_diameter=70.0,
+                                            lightweight=True, pattern="windows",
+                                            pattern_density=1.0),
     "lightweight-windows": SpoolConfig(lightweight=True, pattern="windows", pattern_density=1.0,
                                        text="PLA", tag_pocket=True),
 }
@@ -40,6 +43,13 @@ def half(request):
     return cfg, build_half(cfg, h)
 
 
+@pytest.mark.parametrize("key", list(CONFIGS))
+def test_configs_are_valid(key):
+    from spoolmaker.config import validate
+
+    assert not validate(CONFIGS[key])
+
+
 def test_valid_single_solid(half):
     _, m = half
     assert m.status() == Error.NoError
@@ -55,11 +65,12 @@ def test_flat_on_bed(half):
     cfg, m = half
     assert m.bounding_box()[2] == pytest.approx(0.0, abs=1e-6)
     footprint = m.slice(0.01)
-    disc = math.pi * (cfg.outer_diameter / 2) ** 2
-    # The flange, not a core end, is on the bed (windows at full density open ~60 %).
-    assert footprint.area() > 0.35 * disc
-    # ... out to its edge: the outer 1.5 mm of the rim is on the bed all the way round.
     d = dims(cfg)
+    # The flange, not a core end, is on the bed: at least its always-solid rim and hub
+    # ring (bore to hub_ring_r) are there, whatever the pattern opens up.
+    solid = math.pi * (d.R**2 - d.rim_r**2 + d.hub_ring_r**2 - d.r_bore**2)
+    assert footprint.area() >= 0.9 * solid
+    # ... out to its edge: the outer 1.5 mm of the rim is on the bed all the way round.
     edge = CrossSection.circle(d.R - 0.05, d.seg) - CrossSection.circle(d.R - 1.5, d.seg)
     assert (edge - footprint).area() < 1e-2
 

@@ -27,13 +27,21 @@ def flange_disc(d: Dims) -> Manifold:
 
 def core_a(d: Dims) -> Manifold:
     """Half A's (female) core: a thin tube up from the flange whose top SOCKET_DEPTH is the
-    socket (bore r_socket_in) that receives B's sleeve. Its wall is never thinner inward
-    at the socket than below it, so there is no overhanging step."""
+    socket (bore r_socket_in) that receives B's sleeve. The socket wall is thicker than
+    the tube; the inward step below it is a 45 deg chamfer (support-free), or an upward
+    ledge if the socket bore is the wider one."""
     h = core_height_a(d)
-    lower = tube(h - SOCKET_DEPTH + _OVERLAP, d.r_tube_a_in, d.r_core_out, d.seg).translate(
-        (0, 0, -_OVERLAP))
-    socket = tube(SOCKET_DEPTH, d.r_socket_in, d.r_core_out, d.seg).translate((0, 0, h - SOCKET_DEPTH))
-    return (lower + socket).translate((0, 0, d.t))
+    z_floor = h - SOCKET_DEPTH
+    rise = max(d.r_tube_a_in - d.r_socket_in, 0.0)
+    profile = [
+        (d.r_tube_a_in, -_OVERLAP),
+        (d.r_core_out, -_OVERLAP),
+        (d.r_core_out, h),
+        (d.r_socket_in, h),
+        (d.r_socket_in, z_floor),
+        (d.r_tube_a_in, z_floor - rise),
+    ]
+    return CrossSection([profile]).revolve(d.seg).translate((0, 0, d.t))
 
 
 def core_b(d: Dims) -> Manifold:

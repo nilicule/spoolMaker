@@ -15,7 +15,7 @@ PATTERNS = ("none", "honeycomb", "spokes", "voronoi", "holes", "isogrid", "windo
 MATERIALS = ("PLA", "PETG", "ABS", "ASA", "TPU", "PC")
 TAG_SIZES = (20, 25, 30)
 BORE_MARGIN = 12.0
-MIN_LOCK_WALL = 1.6  # socket wall left behind half A's bayonet channels and pocket
+MIN_LOCK_WALL = 2.0  # socket wall left behind half A's bayonet channels and pocket
 
 
 @dataclass(frozen=True)
@@ -222,6 +222,7 @@ def config_schema() -> dict:
             for k, p in PRESETS.items()
         },
         "limits": {"od": list(OD_RANGE), "width": list(WIDTH_RANGE), "bore": list(BORE_RANGE),
-                   "rim_width": RIM_WIDTH, "max_text": MAX_TEXT,
+                   "rim_width": RIM_WIDTH, "rim_width_light": RIM_WIDTH_LIGHT,
+                   "max_text": MAX_TEXT,
                    "twist_deg": TWIST_DEG},
     }
