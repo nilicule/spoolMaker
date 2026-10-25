@@ -124,7 +124,8 @@ def test_app_js_versions_model_urls():
 
     js = (STATIC_DIR / "app.js").read_text()
     assert 'modelQs.set("v", schema.geometry_version)' in js  # preview
-    assert "half/${h}.stl?${modelQs}" in js
+    assert "fetch(apiUrl(`half/${h}.stl?${modelQs}`))" in js
+    assert 'new URL(`api/${path}`, document.baseURI)' in js
     assert 'qs.set("v", schema.geometry_version)' in js  # downloads: STL, 3MF, Bambu
 
 
@@ -184,8 +185,42 @@ def test_forwarded_prefix_with_trust_proxy(monkeypatch):
     c = create_app().test_client()
     page = c.get("/", headers={"X-Forwarded-Prefix": "/spool"}).get_data(as_text=True)
     assert '<base href="/spool/">' in page
-    evil = c.get("/", headers={"X-Forwarded-Prefix": "/x<script>"}).get_data(as_text=True)
-    assert "<script>" not in evil and '<base href="/x&lt;script&gt;/">' in evil
+    assert '<base href="/a/b/">' in c.get("/", headers={"X-Forwarded-Prefix": "/a/b/"}).get_data(
+        as_text=True)
+
+
+HOSTILE_PREFIXES = ["//evil.example", "https://evil.example", "javascript:alert(1)//",
+                    "/a/../b", "/..", "/./x", "/%2e%2e/x", "/a\\b", "\\\\evil.example",
+                    "/x<script>", "/a b", "evil", "/spool//evil.example"]
+
+
+@pytest.mark.parametrize("prefix", HOSTILE_PREFIXES)
+def test_hostile_forwarded_prefix_falls_back_to_root(monkeypatch, prefix):
+    monkeypatch.setenv("TRUST_PROXY", "1")
+    monkeypatch.delenv("BASE_PATH", raising=False)
+    r = create_app().test_client().get("/", headers={"X-Forwarded-Prefix": prefix})
+    page = r.get_data(as_text=True)
+    assert r.status_code == 200 and r.headers["Cache-Control"] == "no-cache"
+    assert '<base href="/">' in page and page.count("<base ") == 1
+
+
+def test_base_path_ignores_forwarded_prefix(monkeypatch):
+    monkeypatch.setenv("TRUST_PROXY", "1")
+    monkeypatch.setenv("BASE_PATH", "/spool")
+    c = create_app().test_client()
+    for forged in ("/spool", "//evil.example", "/other"):
+        page = c.get("/spool/", headers={"X-Forwarded-Prefix": forged}).get_data(as_text=True)
+        assert '<base href="/spool/">' in page, forged
+    # no spoof route: a forged prefix doesn't mount the app at the root
+    page = c.get("/", headers={"X-Forwarded-Prefix": "/spool"}).get_data(as_text=True)
+    assert '<base href="/">' in page
+
+
+@pytest.mark.parametrize("bad", ["https://evil.example", "/a/../b", "/sp ool"])
+def test_base_path_must_be_a_plain_path(monkeypatch, bad):
+    monkeypatch.setenv("BASE_PATH", bad)
+    with pytest.raises(ValueError):
+        create_app()
 
 
 @pytest.mark.parametrize("base_path", ["/spool", "spool/", "/spool/"])

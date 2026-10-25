@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import html
 import os
+import re
 from importlib import metadata
 from pathlib import Path
 
@@ -67,36 +68,59 @@ class BasePath:
     def __call__(self, environ, start_response):
         path = environ.get("PATH_INFO", "")
         if path == self.prefix or path.startswith(self.prefix + "/"):
-            environ["SCRIPT_NAME"] = environ.get("SCRIPT_NAME", "") + self.prefix
+            environ["SCRIPT_NAME"] = self.prefix  # assign: the deployment fixes the mount point
             environ["PATH_INFO"] = path[len(self.prefix):] or "/"
         return self.app(environ, start_response)
+
+
+# A mount point is "" or "/seg/seg..." of plain URL path characters, with no "." or ".."
+# segments: nothing that could make <base href> point at another host or scheme.
+_PREFIX_RE = re.compile(r"(/[A-Za-z0-9._~%-]+)*")
+_DOT_SEGMENT = re.compile(r"/(\.|%2e)+(?=/|$)", re.IGNORECASE)
+
+
+def safe_prefix(prefix: str) -> str | None:
+    """The mount point with any trailing slash removed, or None if it isn't a plain path."""
+    prefix = prefix.rstrip("/")
+    if _PREFIX_RE.fullmatch(prefix) and not _DOT_SEGMENT.search(prefix):
+        return prefix
+    return None
 
 
 def _base_path() -> str:
     """BASE_PATH env normalised to "/prefix" (no trailing slash), or "" for the root."""
     raw = os.environ.get("BASE_PATH", "").strip().strip("/")
-    return f"/{raw}" if raw else ""
+    prefix = safe_prefix(f"/{raw}") if raw else ""
+    if prefix is None:
+        raise ValueError(f"BASE_PATH is not a plain URL path: {raw!r}")
+    return prefix
 
 
 def create_app() -> Flask:
     app = Flask(__name__, static_folder="static", static_url_path="/static")
-    if prefix := _base_path():
+    prefix = _base_path()
+    if prefix:
         app.wsgi_app = BasePath(app.wsgi_app, prefix)
     if is_true(os.environ.get("TRUST_PROXY")):
-        # Behind a reverse proxy: honour X-Forwarded-For/-Proto/-Host/-Prefix from one hop.
-        # Only safe when the proxy sets (or strips) these headers; never expose the app
-        # directly with this on.
-        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+        # Behind a reverse proxy: honour X-Forwarded-For/-Proto/-Host (and -Prefix, unless
+        # BASE_PATH fixes the mount point) from one hop. Only safe when the proxy sets (or
+        # strips) these headers; never expose the app directly with this on.
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1,
+                                x_prefix=0 if prefix else 1)
 
     @app.get("/")
     def index():
         # Every URL in the page is relative; the <base> pins them to the app's mount point
         # (e.g. /spool/), so they resolve even when the page is opened as /spool.
-        base = html.escape(request.script_root.rstrip("/") + "/", quote=True)
+        # A forwarded prefix that isn't a plain path (//host, scheme:, ..) falls back to "/".
+        root = safe_prefix(request.script_root) or ""
+        base = html.escape(root + "/", quote=True)
         page = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
         page = page.replace('<meta charset="utf-8">',
                             f'<meta charset="utf-8">\n  <base href="{base}">', 1)
-        return Response(page, mimetype="text/html")
+        resp = Response(page, mimetype="text/html")
+        resp.headers["Cache-Control"] = "no-cache"  # the <base> depends on request headers
+        return resp
 
     @app.get("/healthz")
     def healthz():  # liveness for container health checks; does no geometry work
