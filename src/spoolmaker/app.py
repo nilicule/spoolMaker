@@ -8,7 +8,7 @@ from pathlib import Path
 from flask import Flask, Response, jsonify, request
 
 from . import cache
-from .config import config_schema, from_query, to_query, validate
+from .config import config_schema, from_query, is_true, to_query, validate
 from .stats import stats
 
 STATIC_DIR = Path(__file__).parent / "static"
@@ -55,7 +55,7 @@ def create_app() -> Flask:
         errors = validate(cfg)
         if errors:
             return jsonify(errors=errors), 422
-        name = f"spool-{half}.stl" if request.args.get("download") else None
+        name = f"spool-{half}.stl" if is_true(request.args.get("download")) else None
         return _model_response(cache.stl(cfg, half), "model/stl", name)
 
     @app.get("/api/spool.3mf")

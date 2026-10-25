@@ -43,6 +43,12 @@ def test_stl_download(client):
     assert "spool-b.stl" in r.headers["Content-Disposition"]
 
 
+@pytest.mark.parametrize("flag", ["0", "false", "off", "", "no"])
+def test_stl_download_off(client, flag):
+    r = client.get(f"/api/half/b.stl?download={flag}")
+    assert r.status_code == 200 and "Content-Disposition" not in r.headers
+
+
 def test_3mf(client):
     r = client.get("/api/spool.3mf")
     assert r.status_code == 200 and zipfile.is_zipfile(io.BytesIO(r.data))

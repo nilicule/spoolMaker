@@ -67,7 +67,10 @@ def test_schema_shape():
     assert s["fields"]["outer_diameter"]["min"] == 197.0
     assert "honeycomb" in s["fields"]["pattern"]["choices"]
     assert s["presets"]["bambu"]["verified"] is False
-    assert set(s["limits"]) == {"od", "width", "bore", "rim_width", "max_text"}
+    assert set(s["limits"]) == {"od", "width", "bore", "rim_width", "max_text", "twist_deg"}
+    from spoolmaker.geometry.lock import TWIST_DEG
+
+    assert s["limits"]["twist_deg"] == TWIST_DEG
 
 
 def test_from_query_nonfinite_ints_fall_back():

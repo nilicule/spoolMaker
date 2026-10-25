@@ -7,10 +7,10 @@ A designer for two-part, twist-lock, Bambu AMS-compatible filament spools that h
 - Two halves that twist-lock together around a refill coil, sized for AMS-compatible dimensions (200 mm flange, 55 mm bore)
 - Refill presets (Bambu Lab refill, custom coil dimensions) with coil clearance and lock clearance settings
 - Flange patterns: honeycomb, spokes, voronoi, holes, isogrid, or none, with density and seed
-- Lightweight mode that pockets the core
-- Embossed label area with custom text
+- Lightweight mode that pockets the core and thins the flanges
+- Engraved label outline with custom text
 - Filament gauge ticks by material
-- Clip holes and an optional RFID tag pocket
+- Clip holes and an optional NFC tag pocket (for tracking with a phone; the AMS does not read it)
 - Live three.js preview, mass and fit stats, STL per half or a combined 3MF
 
 ## Run

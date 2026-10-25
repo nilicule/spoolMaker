@@ -181,14 +181,13 @@ def pattern_cutouts(
     if kind == "none":
         return CrossSection()
     density = min(max(density, 0.0), 1.0)
-    cell = _lerp(22, 9, density)
     if kind == "holes":
         cell = _lerp(22, 14, density)
     elif kind in ("honeycomb", "isogrid", "voronoi"):
-        # With the spec'd 22->9 range the web/pitch ratio grows faster than the
-        # wall thins, so open area would *drop* with density. Keep the tiling
-        # coarser at the dense end so open area rises monotonically.
+        # Keep the tiling coarser at the dense end so open area rises monotonically.
         cell = _lerp(22, GRID_MIN_CELL, density)
+    else:
+        cell = _lerp(22, 9, density)
     wall = _lerp(3.0, 1.6, density)
 
     if kind in _POLY_KINDS:

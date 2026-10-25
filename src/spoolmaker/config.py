@@ -95,6 +95,11 @@ _TRUE = {"1", "true", "on"}
 _FALSE = {"0", "false", "off", ""}
 
 
+def is_true(raw: str | None) -> bool:
+    """Query-string boolean: true only for 1/true/on."""
+    return raw is not None and raw.strip().lower() in _TRUE
+
+
 def _parse_field(name: str, default, raw: str):
     """Parse one raw string; return the default on garbage."""
     try:
@@ -187,6 +192,8 @@ def validate(cfg: SpoolConfig) -> list[str]:
 
 
 def config_schema() -> dict:
+    from .geometry.lock import TWIST_DEG
+
     fdefs = {}
     for f in fields(SpoolConfig):
         d = f.default
@@ -211,5 +218,6 @@ def config_schema() -> dict:
             for k, p in PRESETS.items()
         },
         "limits": {"od": list(OD_RANGE), "width": list(WIDTH_RANGE), "bore": list(BORE_RANGE),
-                   "rim_width": RIM_WIDTH, "max_text": MAX_TEXT},
+                   "rim_width": RIM_WIDTH, "max_text": MAX_TEXT,
+                   "twist_deg": TWIST_DEG},
     }

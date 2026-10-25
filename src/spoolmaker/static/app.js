@@ -25,7 +25,7 @@ const FIELD_META = {
   pattern_density: { label: "Pattern density", group: "Pattern", step: 0.01,
     help: "Higher means more open area and a lighter spool." },
   pattern_seed: { label: "Pattern seed", group: "Pattern", step: 1,
-    help: "Reshuffles randomised patterns (voronoi, holes)." },
+    help: "Reshuffles the voronoi pattern." },
   lightweight: { label: "Lightweight mode", group: "Pattern",
     help: "Thinner, more open structure. Prints faster, uses less filament." },
   label: { label: "Label panel", group: "Personalize" },
@@ -480,7 +480,9 @@ function replaceMesh(old, geometry) {
 
 function placeB() {
   if (!meshB) return;
-  meshB.rotation.set(Math.PI, 0, 0);
+  // Same pose as geometry assembled(): flip about X, then twist about Z into the locked position.
+  const twist = THREE.MathUtils.degToRad(schema.limits.twist_deg);
+  meshB.rotation.set(Math.PI, 0, twist, "ZYX");
   meshB.position.set(0, 0, overallWidth + ($("exploded").checked ? EXPLODE_MM : 0));
 }
 
