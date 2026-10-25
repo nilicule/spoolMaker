@@ -31,7 +31,7 @@ const FIELD_META = {
   label: { label: "Label panel", group: "Personalize" },
   label_width: { label: "Label width", unit: "mm", group: "Personalize", step: 0.5 },
   label_height: { label: "Label height", unit: "mm", group: "Personalize", step: 0.5 },
-  text: { label: "Embossed text", group: "Personalize", help: "Up to 24 characters." },
+  text: { label: "Engraved text", group: "Personalize", help: "Up to 24 characters." },
   color: { label: "Preview colour", group: "Personalize",
     help: "Only changes the preview — print in whatever you like." },
   gauge: { label: "Remaining-filament gauge", group: "Extras" },
@@ -210,7 +210,7 @@ function makeSelect(name, def, meta) {
   return node;
 }
 
-function makeCheckbox(name, def, meta) {
+function makeCheckbox(name, meta) {
   const id = `f-${name}`;
   const box = el("input", { type: "checkbox", id,
     "aria-describedby": meta.help ? `help-${name}` : null });
@@ -274,10 +274,16 @@ function buildControls() {
       return lg;
     })())]));
 
-  for (const [name, def] of Object.entries(schema.fields)) {
+  // Deliberate order: FIELD_META order first (incl. the preview-only colour), then any
+  // fields the backend added that the UI doesn't know about yet.
+  const known = Object.keys(FIELD_META).filter((n) => n === "color" || n in schema.fields);
+  const order = [...known, ...Object.keys(schema.fields).filter((n) => !(n in FIELD_META))];
+  for (const name of order) {
     const meta = metaFor(name);
+    if (name === "color") { sets[meta.group].append(makeColor()); continue; }
+    const def = schema.fields[name];
     let node;
-    if (def.type === "bool") node = makeCheckbox(name, def, meta);
+    if (def.type === "bool") node = makeCheckbox(name, meta);
     else if (def.type === "choice") node = makeSelect(name, def, meta);
     else if (def.type === "string") node = makeText(name, def, meta);
     else if (def.min !== undefined && def.max !== undefined) node = makeRange(name, def, meta);
@@ -290,9 +296,7 @@ function buildControls() {
       controls[name] = { set(v) { input.value = v; }, setDisabled(d) { input.disabled = d; } };
     }
     (sets[meta.group] || sets.Extras).append(node);
-    if (name === "text") sets.Personalize.append(makeColor());
   }
-  if (!schema.fields.text) sets.Personalize.append(makeColor());
   for (const g of GROUPS) if (sets[g].children.length > 1) form.append(sets[g]);
 }
 
@@ -311,8 +315,14 @@ function syncControls() {
   controls.tag_diameter?.setDisabled(!model.tag_pocket);
 }
 
+function setDownloads(enabled) {
+  for (const b of ["dl-a", "dl-b", "dl-3mf"]) $(b).disabled = !enabled;
+}
+
 function commit(name, value) {
   model[name] = value;
+  lastValid = false;   // downloads stay off until the stats for this exact model arrive
+  setDownloads(false);
   if (name === "refill") applyPreset();
   syncControls();
   writeUrl();
@@ -387,7 +397,7 @@ function renderStats(s) {
     $("notes").textContent = "Preview shows the last valid design.";
   }
   $("stats").classList.toggle("is-stale", !s.valid);
-  for (const b of ["dl-a", "dl-b", "dl-3mf"]) $(b).disabled = !s.valid;
+  setDownloads(s.valid);
   setDimmed(!s.valid);
 }
 
@@ -463,7 +473,6 @@ let overallWidth = 0;
 
 function replaceMesh(old, geometry) {
   if (old) { spool.remove(old); old.geometry.dispose(); }
-  geometry.computeVertexNormals();
   const mesh = new THREE.Mesh(geometry, material);
   spool.add(mesh);
   return mesh;
@@ -477,8 +486,13 @@ function placeB() {
 
 function showMeshes(bufA, bufB, width) {
   overallWidth = width;
-  meshA = replaceMesh(meshA, loader.parse(bufA));
-  meshB = replaceMesh(meshB, loader.parse(bufB));
+  // Parse both first so a failure can't leave a new A next to an old B.
+  const geoA = loader.parse(bufA);
+  const geoB = loader.parse(bufB);
+  geoA.computeVertexNormals();
+  geoB.computeVertexNormals();
+  meshA = replaceMesh(meshA, geoA);
+  meshB = replaceMesh(meshB, geoB);
   placeB();
   if (!framed) { frame(); framed = true; }
 }

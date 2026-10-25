@@ -52,6 +52,8 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 
+[hidden] { display: none !important; }
+
 html, body { height: 100%; }
 
 body {
@@ -118,6 +120,7 @@ h1 {
 .loading-note { color: var(--ink-faint); }
 
 fieldset.group {
+  min-width: 0;          /* fieldsets default to min-content and overflow narrow screens */
   border: 0;
   margin: 0;
   padding: 16px 0 4px;
@@ -145,7 +148,7 @@ legend.group-title .num {
   letter-spacing: 0;
 }
 
-.field { margin-bottom: 12px; }
+.field { margin-bottom: 12px; min-width: 0; }
 
 .field-head {
   display: flex;
@@ -183,7 +186,7 @@ legend.group-title .num {
 
 .range-row {
   display: grid;
-  grid-template-columns: 1fr 84px;
+  grid-template-columns: minmax(0, 1fr) 84px;
   gap: 10px;
   align-items: center;
   margin-top: 4px;
@@ -449,6 +452,7 @@ input[type="color"] {
     height: auto;
   }
   .panel {
+    min-width: 0;
     border-right: 0;
     border-bottom: 1px solid var(--panel-edge);
     overflow: visible;
@@ -456,5 +460,6 @@ input[type="color"] {
   }
   .viewport { height: 70vh; min-height: 320px; flex: none; }
   .statsbar { padding: 14px 16px 20px; }
-  .actions .btn { flex: 1 1 calc(50% - 8px); }
+  .actions .btn { flex: 1 1 calc(50% - 8px); min-width: 0; }
+  .stage, .statsbar { min-width: 0; }
 }
