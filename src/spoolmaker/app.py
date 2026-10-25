@@ -60,6 +60,10 @@ def create_app() -> Flask:
     def index():
         return Response((STATIC_DIR / "index.html").read_bytes(), mimetype="text/html")
 
+    @app.get("/favicon.ico")
+    def favicon():  # browsers ask for it regardless of the <link rel="icon">s
+        return app.send_static_file("favicon-32.png")
+
     @app.get("/api/schema")
     def schema():
         return jsonify({**config_schema(), "geometry_version": GEOMETRY_VERSION})

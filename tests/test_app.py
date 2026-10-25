@@ -118,5 +118,40 @@ def test_app_js_versions_model_urls():
     from spoolmaker.app import STATIC_DIR
 
     js = (STATIC_DIR / "app.js").read_text()
-    assert "/api/half/${h}.stl?${query}&v=${schema.geometry_version}" in js
+    assert 'modelQs.set("v", schema.geometry_version)' in js  # preview
+    assert "/api/half/${h}.stl?${modelQs}" in js
     assert 'qs.set("v", schema.geometry_version)' in js  # downloads: STL, 3MF, Bambu
+
+
+@pytest.mark.parametrize("path, mimetype", [
+    ("/favicon.ico", "image/png"),
+    ("/static/favicon.svg", "image/svg+xml"),
+    ("/static/favicon-32.png", "image/png"),
+    ("/static/apple-touch-icon.png", "image/png"),
+])
+def test_favicons(client, path, mimetype):
+    r = client.get(path)
+    assert r.status_code == 200 and r.mimetype == mimetype and r.data
+
+
+def test_index_links_favicons(client):
+    html = client.get("/").data.decode()
+    for href in ("/static/favicon.svg", "/static/favicon-32.png", "/static/apple-touch-icon.png"):
+        assert f'href="{href}"' in html
+
+
+def test_printer_hint_matches_js():
+    """The static hint names the default printer exactly as app.js will, so nothing shifts."""
+    from spoolmaker.app import STATIC_DIR
+    from spoolmaker.bambu import DEFAULT_PRINTER, PRINTERS
+
+    html = (STATIC_DIR / "index.html").read_text()
+    assert f'<span id="bambu-printer">{PRINTERS[DEFAULT_PRINTER].name}</span>' in html
+
+
+def test_ui_drops_solid_weight():
+    from spoolmaker.app import STATIC_DIR
+
+    js = (STATIC_DIR / "app.js").read_text()
+    assert "solid" not in js.lower()
+    assert "-solid" not in (STATIC_DIR / "index.html").read_text()

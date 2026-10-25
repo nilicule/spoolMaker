@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Spool Maker</title>
   <meta name="description" content="Design a two-part, twist-lock, AMS-compatible spool for filament refill coils.">
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/static/favicon-32.png" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
@@ -54,9 +57,9 @@
       <section class="statsbar" aria-label="Spool statistics">
         <div class="errors" id="errors" role="alert" hidden></div>
         <dl class="stats" id="stats">
-          <div><dt>Half A</dt><dd id="st-a">—</dd><dd class="stat-sub" id="st-a-solid"></dd></div>
-          <div><dt>Half B</dt><dd id="st-b">—</dd><dd class="stat-sub" id="st-b-solid"></dd></div>
-          <div><dt>Total</dt><dd id="st-total">—</dd><dd class="stat-sub" id="st-total-solid"></dd></div>
+          <div><dt>Half A</dt><dd id="st-a">—</dd></div>
+          <div><dt>Half B</dt><dd id="st-b">—</dd></div>
+          <div><dt>Total</dt><dd id="st-total">—</dd></div>
           <div><dt>Overall width</dt><dd id="st-width">—</dd></div>
         </dl>
         <p class="estimate-note" id="estimate-note"></p>
@@ -71,7 +74,7 @@
           <span class="share-status" id="share-status" role="status" aria-live="polite"></span>
         </div>
         <p class="actions-hint">Downloads a Bambu Studio project with each half on its own plate — open
-          the file to launch Bambu Studio. It uses <span id="bambu-printer">the Bambu Lab A1</span>’s
+          the file to launch Bambu Studio. It uses <span id="bambu-printer">Bambu Lab A1</span>’s
           standard 0.20 mm profile with PLA.</p>
       </section>
     </main>

@@ -39,7 +39,7 @@ uv run pytest
 
 ## Filament estimate
 
-The stats bar shows how much filament each half takes, estimated the way a slicer would print it with the selected Bambu printer's "0.20mm Standard" profile and Bambu PLA Basic (2 walls, 15% grid infill, 5 top and 3 bottom shell layers). Each half is cut into 0.2 mm layers and every layer is split into walls, solid infill (top, bottom and vertical shells, and pockets too small for sparse infill), internal bridges and sparse infill with its anchors; all factors come from the profile (`src/spoolmaker/estimate.py`). With another print material the same volume is weighed at that material's density. The solid (100% infill) weight is shown underneath for comparison.
+The stats bar shows how much filament each half takes, estimated the way a slicer would print it with the selected Bambu printer's "0.20mm Standard" profile and Bambu PLA Basic (2 walls, 15% grid infill, 5 top and 3 bottom shell layers). Each half is cut into 0.2 mm layers and every layer is split into walls, solid infill (top, bottom and vertical shells, and pockets too small for sparse infill), internal bridges and sparse infill with its anchors; all factors come from the profile (`src/spoolmaker/estimate.py`). With another print material the same volume is weighed at that material's density. The API's `/api/stats` also reports the solid (100% infill) weight as `weight_g`.
 
 The estimate is checked against what Bambu Studio's own slicer reports for the app's Bambu project, for a matrix of designs on the A1 and H2D: it stays within 6% (currently about 2%). The reference numbers are in `tests/fixtures/bambu_grams.json`; to regenerate them after a Bambu Studio or profile update (macOS, Bambu Studio installed; slices with the CLI, takes a few minutes):
 
@@ -70,7 +70,7 @@ uv run python scripts/make_bambu_templates.py [--app /Applications/BambuStudio.a
 - `src/spoolmaker/filament.py`, `stats.py` - mass and fit calculations
 - `src/spoolmaker/estimate.py` - slicer-like filament estimate
 - `scripts/calibrate_estimate.py` - re-slices the estimate's reference designs with Bambu Studio (dev-only)
-- `src/spoolmaker/static/` - web UI and three.js preview
+- `src/spoolmaker/static/` - web UI and three.js preview; `scripts/make_favicons.py` renders its PNG favicons from `favicon.svg` (dev-only, needs rsvg-convert)
 - `tests/` - pytest suite, including printability checks
 
 ## License

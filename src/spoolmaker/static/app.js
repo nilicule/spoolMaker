@@ -375,6 +375,8 @@ async function update() {
   const qs = buildQuery();
   qs.delete("color");
   const query = qs.toString();
+  const modelQs = new URLSearchParams(qs);
+  modelQs.set("v", schema.geometry_version);  // new geometry code => new URL, no stale cache
   setBusy(true);
   try {
     const stats = await fetch(`/api/stats?${query}`).then((r) => r.json());
@@ -382,7 +384,7 @@ async function update() {
     renderStats(stats);
     if (!stats.valid) return;
     const [a, b] = await Promise.all(["a", "b"].map((h) =>
-      fetch(`/api/half/${h}.stl?${query}&v=${schema.geometry_version}`).then((r) => {
+      fetch(`/api/half/${h}.stl?${modelQs}`).then((r) => {
         if (!r.ok) throw new Error(`half ${h}: HTTP ${r.status}`);
         return r.arrayBuffer();
       })));
@@ -412,13 +414,10 @@ function renderStats(s) {
     errBox.replaceChildren();
     for (const h of ["a", "b", "total"]) {
       $(`st-${h}`).textContent = fmtG(s.estimate_g[h]);
-      const solid = $(`st-${h}-solid`);
-      solid.textContent = `solid: ${fmtG(s.weight_g[h])}`;
-      solid.title = s.weight_note;
     }
     $("st-width").textContent = `${s.overall_width.toFixed(1)} mm`;
     $("estimate-note").textContent = s.estimate_note;
-    $("notes").textContent = [s.bed_note, "solid = 100% infill"].filter(Boolean).join(" · ");
+    $("notes").textContent = s.bed_note || "";
   } else {
     const list = el("ul");
     for (const e of s.errors) list.append(el("li", { text: e }));
@@ -592,6 +591,9 @@ function applyColor() {
   root.setProperty("--accent", model.color);
   const lum = luminance(model.color);
   root.setProperty("--accent-ink", lum > 0.3 ? "#1f1408" : "#ffffff");
+  // Near-white or near-black accents blend into the plain buttons (light / dark theme);
+  // style.css then inks the primary button instead.
+  document.documentElement.dataset.accentTone = lum > 0.7 ? "light" : lum < 0.03 ? "dark" : "";
   // Text and small marks in the accent colour need contrast against the panel: pull very
   // light colours (e.g. the default white) toward the ink colour.
   root.setProperty("--accent-text",

@@ -391,11 +391,6 @@ input[type="color"] {
   font-variant-numeric: tabular-nums;
 }
 
-.stats dd.stat-sub {
-  font: 400 12px/1.3 var(--font-body);
-  color: var(--ink-soft);
-}
-
 .stats.is-stale dd { color: var(--ink-faint); }
 
 .estimate-note {
@@ -436,9 +431,50 @@ input[type="color"] {
 .btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 3px 0 var(--ink); }
 .btn:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 0 0 var(--ink); }
 
+/* The primary action stands out whatever the filament colour: heavier border and lift,
+   a download glyph, and (when the accent would match the plain buttons' fill) an inked
+   face with accent-coloured text. */
 .btn-primary {
   background: var(--accent);
   color: var(--accent-ink);
+  border-width: 2px;
+  box-shadow: 0 3px 0 var(--ink);
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.btn-primary::before {
+  content: "";
+  width: 13px;
+  height: 13px;
+  flex: none;
+  background: currentColor;
+  -webkit-mask: var(--icon-download) center / contain no-repeat;
+  mask: var(--icon-download) center / contain no-repeat;
+}
+
+.btn-primary:hover:not(:disabled) { box-shadow: 0 4px 0 var(--ink); }
+
+:root {
+  --icon-download: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M7 1h2v7.2l2.6-2.6 1.4 1.4L8 12 3 7l1.4-1.4L7 8.2zM2 13h12v2H2z'/%3E%3C/svg%3E");
+}
+
+:root[data-accent-tone="light"] .btn-primary {
+  background: var(--ink);
+  color: var(--accent);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-accent-tone="light"] .btn-primary {
+    background: var(--accent);
+    color: var(--accent-ink);
+  }
+  :root[data-accent-tone="dark"] .btn-primary {
+    background: var(--ink);
+    color: var(--accent);
+  }
 }
 
 .btn-ghost {
