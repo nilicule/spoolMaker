@@ -457,14 +457,16 @@ input[type="color"] {
   margin-top: 24px;
   font-size: 12px;
   color: var(--ink-faint);
+  text-align: center;
 }
 
-.credit a {
-  color: inherit;
-  text-underline-offset: 2px;
+.credit a, .credit a:visited {
+  color: var(--ink-soft);
+  text-decoration: none;
+  transition: color .2s ease;
 }
 
-.credit a:hover { color: var(--ink-soft); }
+.credit a:hover { color: var(--ink); }
 
 .credit a:focus-visible {
   outline: 2px solid var(--focus);
@@ -476,7 +478,7 @@ input[type="color"] {
 .credit:hover .heart, .credit:focus-within .heart { color: #e0245e; }
 
 @media (prefers-reduced-motion: reduce) {
-  .credit .heart { transition: none; }
+  .credit .heart, .credit a { transition: none; }
 }
 
 /* ---------- Narrow screens ---------- */
