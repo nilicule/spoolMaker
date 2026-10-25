@@ -1,0 +1,16 @@
+.venv
+.git
+**/__pycache__
+.pytest_cache
+tests
+docs
+scripts
+.superpowers
+.claude
+CLAUDE.md
+dist
+**/*.stl
+**/*.3mf
+result.json
+.idea
+**/.DS_Store

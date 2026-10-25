@@ -98,6 +98,10 @@ def create_app() -> Flask:
                             f'<meta charset="utf-8">\n  <base href="{base}">', 1)
         return Response(page, mimetype="text/html")
 
+    @app.get("/healthz")
+    def healthz():  # liveness for container health checks; does no geometry work
+        return Response("ok", mimetype="text/plain")
+
     @app.get("/favicon.ico")
     def favicon():  # browsers ask for it regardless of the <link rel="icon">s
         return app.send_static_file("favicon-32.png")

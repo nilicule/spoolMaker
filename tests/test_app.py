@@ -17,6 +17,11 @@ def test_static_assets(client):
         assert client.get(path).status_code == 200, path
 
 
+def test_healthz(client):
+    r = client.get("/healthz")
+    assert r.status_code == 200 and r.get_data(as_text=True) == "ok"
+
+
 def test_schema(client): assert "pattern" in client.get("/api/schema").json["fields"]
 
 
