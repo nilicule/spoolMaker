@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
+from .cache import half
 from .config import SpoolConfig
 from .filament import DENSITY, gauge_ticks
 
 
 def stats(cfg: SpoolConfig) -> dict:
-    from .app import _half  # shared, cached geometry
-
     density = DENSITY[cfg.print_material]
-    w = {h: round(_half(cfg, h).volume() / 1000 * density, 1) for h in ("a", "b")}
+    w = {h: round(half(cfg, h).volume() / 1000 * density, 1) for h in ("a", "b")}
     w["total"] = round(w["a"] + w["b"], 1)
     flange = f"{cfg.outer_diameter:g}"
     return {

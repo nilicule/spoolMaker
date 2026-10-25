@@ -3,34 +3,16 @@
 from __future__ import annotations
 
 import os
-from functools import lru_cache
 from pathlib import Path
 
 from flask import Flask, Response, jsonify, request
-from manifold3d import Manifold
 
-from .config import SpoolConfig, config_schema, from_query, to_query, validate
-from .export import to_3mf, to_stl
-from .geometry.build import build_half
+from . import cache
+from .config import config_schema, from_query, to_query, validate
 from .stats import stats
 
 STATIC_DIR = Path(__file__).parent / "static"
 CACHE = "public, max-age=3600"
-
-
-@lru_cache(maxsize=64)
-def _half(cfg: SpoolConfig, half: str) -> Manifold:
-    return build_half(cfg, half)
-
-
-@lru_cache(maxsize=64)
-def _stl(cfg: SpoolConfig, half: str) -> bytes:
-    return to_stl(_half(cfg, half))
-
-
-@lru_cache(maxsize=16)
-def _3mf(cfg: SpoolConfig) -> bytes:
-    return to_3mf({"spool-half-a": _half(cfg, "a"), "spool-half-b": _half(cfg, "b")})
 
 
 def _args() -> dict[str, str]:
@@ -74,7 +56,7 @@ def create_app() -> Flask:
         if errors:
             return jsonify(errors=errors), 422
         name = f"spool-{half}.stl" if request.args.get("download") else None
-        return _model_response(_stl(cfg, half), "model/stl", name)
+        return _model_response(cache.stl(cfg, half), "model/stl", name)
 
     @app.get("/api/spool.3mf")
     def spool_3mf():
@@ -82,7 +64,7 @@ def create_app() -> Flask:
         errors = validate(cfg)
         if errors:
             return jsonify(errors=errors), 422
-        return _model_response(_3mf(cfg), "model/3mf", "spool.3mf")
+        return _model_response(cache.three_mf(cfg), "model/3mf", "spool.3mf")
 
     return app
 
