@@ -55,3 +55,8 @@ def test_schema_shape():
     assert "honeycomb" in s["fields"]["pattern"]["choices"]
     assert s["presets"]["bambu"]["verified"] is False
     assert set(s["limits"]) == {"od", "width", "bore", "rim_width", "max_text"}
+
+
+def test_from_query_nonfinite_ints_fall_back():
+    cfg = from_query({"clip_holes": "inf", "pattern_seed": "1e999", "coil_width": "-inf"})
+    assert cfg.clip_holes == 4 and cfg.pattern_seed == 1 and cfg.coil_width == 60.0

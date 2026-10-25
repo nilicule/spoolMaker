@@ -118,7 +118,7 @@ def _parse_field(name: str, default, raw: str):
                 return default
         lo, hi = RANGES[name]
         return type(default)(min(max(value, lo), hi))
-    except (ValueError, TypeError):
+    except (ValueError, TypeError, OverflowError):
         return default
 
 
