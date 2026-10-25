@@ -144,6 +144,8 @@ def to_query(cfg: SpoolConfig) -> dict[str, str]:
 
 
 def validate(cfg: SpoolConfig) -> list[str]:
+    from .filament import coil_fits
+
     errors = []
     lo, hi = WIDTH_RANGE
     if not lo <= cfg.overall_width <= hi:
@@ -156,7 +158,11 @@ def validate(cfg: SpoolConfig) -> list[str]:
         errors.append(
             f"Coil inner diameter must be at least {need:g} mm for this bore."
         )
-    # coil_fits check enabled in Task 2
+    if not coil_fits(cfg):
+        errors.append(
+            f"1 kg of {cfg.gauge_material} does not fit inside the flanges for this coil; "
+            "reduce the coil inner diameter or increase its width."
+        )
     return errors
 
 
