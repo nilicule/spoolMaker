@@ -12,14 +12,13 @@ import math
 
 from manifold3d import CrossSection, Manifold
 
-from .dims import Dims
+from .dims import SEAT_GAP, Dims
 
 LUGS = 3
 LUG_ARC_DEG = 20
 LUG_RADIAL = 1.4
 LUG_AXIAL = 4.0
 TWIST_DEG = 30
-DETENT_BUMP = 0.4  # brief value, kept for reference; ridge geometry uses DETENT_INTERFERENCE
 DETENT_INTERFERENCE = 0.25  # radial overlap of ridge tip with the lug, independent of clearance
 DETENT_ARC = 1.5  # mm of arc length the detent ridge occupies
 
@@ -44,7 +43,7 @@ def channel_r(d: Dims) -> float:
 
 def lugs(d: Dims) -> Manifold:
     """Lugs at the free tip of B's sleeve, underside chamfered 45 deg (print pose)."""
-    z1 = d.t + d.inner_width
+    z1 = d.t + d.inner_width - SEAT_GAP
     z0 = z1 - LUG_AXIAL
     r_in = d.r_sleeve_out - d.sleeve_wall / 2  # overlap into the sleeve wall
     r_out = d.r_sleeve_out + LUG_RADIAL
@@ -64,7 +63,7 @@ def lock_cuts(d: Dims) -> Manifold:
     half_arc = LUG_ARC_DEG / 2
     z0 = d.t
     z_top = d.t + d.inner_width + 1.0
-    z_pocket = d.t + LUG_AXIAL + d.lock_clearance
+    z_pocket = d.t + SEAT_GAP + LUG_AXIAL + d.lock_clearance
     pocket_profile = _pocket_profile(d, r_in, r_out)
     bump_arc = _deg(DETENT_ARC, r_out)
 
@@ -88,8 +87,8 @@ def _pocket_profile(d: Dims, r_in: float, r_wall: float) -> list[tuple[float, fl
     """(r, z) profile of the pocket; its roof is a 45 deg chamfer parallel to the lug's
     chamfered face (offset by lock_clearance), so pull load is face contact and the roof
     prints without support."""
-    # Lug chamfer face in the assembled frame: r + z = r_sleeve_out + t + LUG_AXIAL.
-    k = d.r_sleeve_out + d.t + LUG_AXIAL + d.lock_clearance * math.sqrt(2)
+    # Lug chamfer face in the assembled frame: r + z = r_sleeve_out + t + SEAT_GAP + LUG_AXIAL.
+    k = d.r_sleeve_out + d.t + SEAT_GAP + LUG_AXIAL + d.lock_clearance * math.sqrt(2)
     return [(r_in, d.t), (r_wall, d.t), (r_wall, k - r_wall), (r_in, k - r_in)]
 
 

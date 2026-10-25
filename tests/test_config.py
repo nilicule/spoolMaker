@@ -38,6 +38,19 @@ def test_coil_too_narrow_for_bore():
     assert any("inner diameter" in e for e in validate(cfg))
 
 
+def test_thin_lock_wall_rejected():
+    cfg = SpoolConfig(refill="custom", coil_inner_diameter=70.0, bore_diameter=58.0,
+                      coil_clearance=2.0, lock_clearance=0.6)
+    errors = validate(cfg)
+    assert any("twist-lock" in e and "coil inner diameter" in e for e in errors)
+
+
+def test_lock_wall_at_minimum_accepted():
+    # Minimum coil ID for the bore with default clearances leaves exactly 1.6 mm.
+    cfg = SpoolConfig(refill="custom", coil_inner_diameter=70.0, bore_diameter=58.0)
+    assert not any("twist-lock" in e for e in validate(cfg))
+
+
 def test_one_kg_must_fit():
     cfg = SpoolConfig(refill="custom", coil_inner_diameter=150.0, coil_width=45.0)
     assert any("1 kg" in e for e in validate(cfg))

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from manifold3d import Manifold
 
-from .dims import Dims
+from .dims import SEAT_GAP, Dims
 
 
 def tube(height: float, r_in: float, r_out: float, seg: int) -> Manifold:
@@ -24,5 +24,6 @@ def core_tube(d: Dims) -> Manifold:
 
 
 def sleeve(d: Dims) -> Manifold:
-    """Half B's sleeve; it forms the bore and slides inside A's core."""
-    return tube(d.inner_width, d.r_bore, d.r_sleeve_out, d.seg).translate((0, 0, d.t))
+    """Half B's sleeve; it forms the bore and slides inside A's core, ending SEAT_GAP
+    short of A's flange so only A's core top against B's flange seats the halves."""
+    return tube(d.inner_width - SEAT_GAP, d.r_bore, d.r_sleeve_out, d.seg).translate((0, 0, d.t))

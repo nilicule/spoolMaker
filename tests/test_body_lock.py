@@ -80,3 +80,18 @@ def test_pocket_roof_chamfered_45():
         .rotate((0, 0, 30))
     )
     assert (a ^ probe).volume() > 0.01
+
+
+def test_only_core_top_seats_the_halves():
+    from spoolmaker.geometry.body import tube
+    from spoolmaker.geometry.dims import SEAT_GAP, dims
+
+    d = dims(CFG)
+    a, b = assembled(CFG)
+    # B's sleeve tip stops SEAT_GAP short of A's flange inner face ...
+    gap = tube(SEAT_GAP - 0.02, d.r_bore - 0.5, d.r_core_in - 0.01, d.seg).translate((0, 0, d.t + 0.01))
+    assert (b ^ gap).volume() == pytest.approx(0, abs=1e-6)
+    # ... while A's core top reaches B's flange inner face.
+    top = tube(0.02, d.r_core_in + 0.01, d.r_core_out - 0.01, d.seg).translate(
+        (0, 0, d.t + d.inner_width - 0.02))
+    assert (a ^ top).volume() > 0

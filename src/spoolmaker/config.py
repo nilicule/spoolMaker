@@ -14,6 +14,7 @@ PATTERNS = ("none", "honeycomb", "spokes", "voronoi", "holes", "isogrid")
 MATERIALS = ("PLA", "PETG", "ABS", "ASA", "TPU", "PC")
 TAG_SIZES = (20, 25, 30)
 BORE_MARGIN = 12.0
+MIN_LOCK_WALL = 1.6  # core wall left behind half A's bayonet channels and pocket
 
 
 @dataclass(frozen=True)
@@ -158,16 +159,26 @@ def validate(cfg: SpoolConfig) -> list[str]:
         errors.append(
             f"Coil inner diameter must be at least {need:g} mm for this bore."
         )
+    from .geometry.dims import dims
+    from .geometry.lock import channel_r
+
+    d = dims(cfg)
+    wall = d.r_core_out - channel_r(d)
+    if wall < MIN_LOCK_WALL - 1e-9:
+        errors.append(
+            f"The core wall behind the twist-lock would be only {wall:.1f} mm "
+            f"(minimum {MIN_LOCK_WALL:g} mm); increase the coil inner diameter or reduce "
+            "the bore, coil clearance or twist-lock clearance."
+        )
     if not coil_fits(cfg):
         errors.append(
             f"1 kg of {cfg.gauge_material} does not fit inside the flanges for this coil; "
             "reduce the coil inner diameter or increase its width."
         )
     if cfg.tag_pocket:
-        from .geometry.dims import dims
         from .geometry.features import tag_fits
 
-        if not tag_fits(cfg, dims(cfg)):
+        if not tag_fits(cfg, d):
             errors.append(
                 f"A {cfg.tag_diameter} mm NFC tag pocket does not fit between the core and "
                 "the rim; choose a smaller tag or a smaller coil inner diameter."
