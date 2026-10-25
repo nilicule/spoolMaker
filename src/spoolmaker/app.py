@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import hashlib
+import html
 import os
 from importlib import metadata
 from pathlib import Path
 
 from flask import Flask, Response, jsonify, request
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from . import cache
 from .config import config_schema, from_query, is_true, to_query, validate
@@ -53,12 +55,48 @@ def _model_response(data: bytes, mimetype: str, filename: str | None) -> Respons
     return resp.make_conditional(request)
 
 
+class BasePath:
+    """WSGI middleware for a proxy that forwards the full path (/spool/api/...): moves the
+    BASE_PATH prefix from PATH_INFO to SCRIPT_NAME. Requests outside the prefix (such as a
+    container health check on /healthz) pass through unchanged."""
+
+    def __init__(self, app, prefix: str):
+        self.app = app
+        self.prefix = prefix
+
+    def __call__(self, environ, start_response):
+        path = environ.get("PATH_INFO", "")
+        if path == self.prefix or path.startswith(self.prefix + "/"):
+            environ["SCRIPT_NAME"] = environ.get("SCRIPT_NAME", "") + self.prefix
+            environ["PATH_INFO"] = path[len(self.prefix):] or "/"
+        return self.app(environ, start_response)
+
+
+def _base_path() -> str:
+    """BASE_PATH env normalised to "/prefix" (no trailing slash), or "" for the root."""
+    raw = os.environ.get("BASE_PATH", "").strip().strip("/")
+    return f"/{raw}" if raw else ""
+
+
 def create_app() -> Flask:
     app = Flask(__name__, static_folder="static", static_url_path="/static")
+    if prefix := _base_path():
+        app.wsgi_app = BasePath(app.wsgi_app, prefix)
+    if is_true(os.environ.get("TRUST_PROXY")):
+        # Behind a reverse proxy: honour X-Forwarded-For/-Proto/-Host/-Prefix from one hop.
+        # Only safe when the proxy sets (or strips) these headers; never expose the app
+        # directly with this on.
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
     @app.get("/")
     def index():
-        return Response((STATIC_DIR / "index.html").read_bytes(), mimetype="text/html")
+        # Every URL in the page is relative; the <base> pins them to the app's mount point
+        # (e.g. /spool/), so they resolve even when the page is opened as /spool.
+        base = html.escape(request.script_root.rstrip("/") + "/", quote=True)
+        page = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
+        page = page.replace('<meta charset="utf-8">',
+                            f'<meta charset="utf-8">\n  <base href="{base}">', 1)
+        return Response(page, mimetype="text/html")
 
     @app.get("/favicon.ico")
     def favicon():  # browsers ask for it regardless of the <link rel="icon">s

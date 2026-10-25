@@ -379,12 +379,12 @@ async function update() {
   modelQs.set("v", schema.geometry_version);  // new geometry code => new URL, no stale cache
   setBusy(true);
   try {
-    const stats = await fetch(`/api/stats?${query}`).then((r) => r.json());
+    const stats = await fetch(apiUrl(`stats?${query}`)).then((r) => r.json());
     if (id !== reqSeq) return;
     renderStats(stats);
     if (!stats.valid) return;
     const [a, b] = await Promise.all(["a", "b"].map((h) =>
-      fetch(`/api/half/${h}.stl?${modelQs}`).then((r) => {
+      fetch(apiUrl(`half/${h}.stl?${modelQs}`)).then((r) => {
         if (!r.ok) throw new Error(`half ${h}: HTTP ${r.status}`);
         return r.arrayBuffer();
       })));
@@ -431,13 +431,19 @@ function renderStats(s) {
   setDimmed(!s.valid);
 }
 
+// API URLs resolve against the page's <base href> (set by the server to its mount point),
+// never the domain root, so the app also works under a sub-path such as /spool/.
+function apiUrl(path) {
+  return new URL(`api/${path}`, document.baseURI).href;
+}
+
 function download(path) {
   if (!lastValid) return;
   const qs = buildQuery();
   qs.delete("color");
   qs.set("download", "1");
   qs.set("v", schema.geometry_version);
-  const a = el("a", { href: `${path}?${qs}`, download: "" });
+  const a = el("a", { href: apiUrl(`${path}?${qs}`), download: "" });
   document.body.append(a);
   a.click();
   a.remove();
@@ -624,10 +630,10 @@ function loop(now) {
 // ---------- boot ----------
 
 async function boot() {
-  $("dl-a").addEventListener("click", () => download("/api/half/a.stl"));
-  $("dl-b").addEventListener("click", () => download("/api/half/b.stl"));
-  $("dl-3mf").addEventListener("click", () => download("/api/spool.3mf"));
-  $("dl-bambu").addEventListener("click", () => download("/api/spool-bambu.3mf"));
+  $("dl-a").addEventListener("click", () => download("half/a.stl"));
+  $("dl-b").addEventListener("click", () => download("half/b.stl"));
+  $("dl-3mf").addEventListener("click", () => download("spool.3mf"));
+  $("dl-bambu").addEventListener("click", () => download("spool-bambu.3mf"));
   $("share").addEventListener("click", copyShare);
   $("reset").addEventListener("click", resetDefaults);
   explodeT = explodeTarget = $("exploded").checked ? 1 : 0;   // restored checkbox state
@@ -635,7 +641,7 @@ async function boot() {
   requestAnimationFrame(loop);
 
   try {
-    schema = await fetch("/api/schema").then((r) => r.json());
+    schema = await fetch(apiUrl("schema")).then((r) => r.json());
   } catch (err) {
     $("controls").replaceChildren(el("p", { class: "loading-note",
       text: "Couldn’t load settings from the server." }));

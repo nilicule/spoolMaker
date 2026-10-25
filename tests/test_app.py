@@ -119,7 +119,7 @@ def test_app_js_versions_model_urls():
 
     js = (STATIC_DIR / "app.js").read_text()
     assert 'modelQs.set("v", schema.geometry_version)' in js  # preview
-    assert "/api/half/${h}.stl?${modelQs}" in js
+    assert "half/${h}.stl?${modelQs}" in js
     assert 'qs.set("v", schema.geometry_version)' in js  # downloads: STL, 3MF, Bambu
 
 
@@ -136,7 +136,7 @@ def test_favicons(client, path, mimetype):
 
 def test_index_links_favicons(client):
     html = client.get("/").data.decode()
-    for href in ("/static/favicon.svg", "/static/favicon-32.png", "/static/apple-touch-icon.png"):
+    for href in ("static/favicon.svg", "static/favicon-32.png", "static/apple-touch-icon.png"):
         assert f'href="{href}"' in html
 
 
@@ -155,3 +155,52 @@ def test_ui_drops_solid_weight():
     js = (STATIC_DIR / "app.js").read_text()
     assert "solid" not in js.lower()
     assert "-solid" not in (STATIC_DIR / "index.html").read_text()
+
+
+# ---------- sub-path hosting ----------
+
+def test_index_base_root(client):
+    assert '<base href="/">' in client.get("/").get_data(as_text=True)
+
+
+def test_index_base_script_name(client):
+    page = client.get("/", environ_overrides={"SCRIPT_NAME": "/spool"}).get_data(as_text=True)
+    assert '<base href="/spool/">' in page
+
+
+def test_forwarded_prefix_ignored_without_trust_proxy(monkeypatch):
+    monkeypatch.delenv("TRUST_PROXY", raising=False)
+    page = create_app().test_client().get("/", headers={"X-Forwarded-Prefix": "/spool"})
+    assert '<base href="/">' in page.get_data(as_text=True)
+
+
+def test_forwarded_prefix_with_trust_proxy(monkeypatch):
+    monkeypatch.setenv("TRUST_PROXY", "1")
+    c = create_app().test_client()
+    page = c.get("/", headers={"X-Forwarded-Prefix": "/spool"}).get_data(as_text=True)
+    assert '<base href="/spool/">' in page
+    evil = c.get("/", headers={"X-Forwarded-Prefix": "/x<script>"}).get_data(as_text=True)
+    assert "<script>" not in evil and '<base href="/x&lt;script&gt;/">' in evil
+
+
+@pytest.mark.parametrize("base_path", ["/spool", "spool/", "/spool/"])
+def test_base_path_env(monkeypatch, base_path):
+    monkeypatch.setenv("BASE_PATH", base_path)
+    monkeypatch.delenv("TRUST_PROXY", raising=False)
+    c = create_app().test_client()
+    assert '<base href="/spool/">' in c.get("/spool/").get_data(as_text=True)
+    assert '<base href="/spool/">' in c.get("/spool").get_data(as_text=True)
+    assert c.get("/spool/api/stats").json["valid"]
+    assert c.get("/spool/static/app.js").status_code == 200
+    r = c.get("/spool/api/half/a.stl")
+    assert r.status_code == 200 and r.mimetype == "model/stl"
+    assert '<base href="/">' in c.get("/").get_data(as_text=True)  # outside the prefix
+
+
+def test_frontend_urls_are_relative():
+    import re
+    from spoolmaker.app import STATIC_DIR
+    for name in ("index.html", "app.js", "style.css"):
+        text = (STATIC_DIR / name).read_text(encoding="utf-8")
+        hits = re.findall(r"""["'`(]/(?:api|static)\b""", text)
+        assert not hits, (name, hits)
