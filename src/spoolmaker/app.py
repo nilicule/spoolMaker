@@ -110,14 +110,17 @@ def create_app() -> Flask:
 
     @app.get("/")
     def index():
-        # Every URL in the page is relative; the <base> pins them to the app's mount point
-        # (e.g. /spool/), so they resolve even when the page is opened as /spool.
-        # A forwarded prefix that isn't a plain path (//host, scheme:, ..) falls back to "/".
+        # Every URL in the page is relative. When the mount point is known (e.g. /spool/), a
+        # <base> pins them to it so they resolve even when the page is opened as /spool.
+        # When it isn't (no prefix, or one that isn't a plain path like //host, scheme:, ..),
+        # there's no <base>: the URLs resolve against the page's own address, which also works
+        # behind a proxy that strips the prefix without sending X-Forwarded-Prefix.
         root = safe_prefix(request.script_root) or ""
-        base = html.escape(root + "/", quote=True)
         page = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
-        page = page.replace('<meta charset="utf-8">',
-                            f'<meta charset="utf-8">\n  <base href="{base}">', 1)
+        if root:
+            base = html.escape(root + "/", quote=True)
+            page = page.replace('<meta charset="utf-8">',
+                                f'<meta charset="utf-8">\n  <base href="{base}">', 1)
         resp = Response(page, mimetype="text/html")
         resp.headers["Cache-Control"] = "no-cache"  # the <base> depends on request headers
         return resp

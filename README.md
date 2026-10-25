@@ -65,7 +65,7 @@ Settings (environment variables):
 
 ### Under a sub-path (e.g. n2g.dev/spool/)
 
-Every URL in the page is relative to a `<base href>` the server fills in, so the app works at `/` or under any prefix. The usual setup is a proxy that strips the prefix and sends `X-Forwarded-Prefix`. nginx:
+Every URL in the page is relative, so the app works at `/` or under any prefix. The usual setup is a proxy that strips the prefix; sending `X-Forwarded-Prefix` as well lets the server add a `<base href>` so the page also works when opened without the trailing slash. Without the header the page still works at `/spool/` (its URLs resolve against the page's own address). nginx:
 
 ```
 location = /spool { return 301 /spool/; }
@@ -93,7 +93,7 @@ n2g.dev {
 }
 ```
 
-Redirect `/spool` to `/spool/` as shown. The page also loads without the slash (the `<base>` tag pins its URLs), but the redirect keeps addresses consistent.
+Redirect `/spool` to `/spool/` as shown. With `X-Forwarded-Prefix` the page also loads without the slash (the `<base>` tag pins its URLs); without the header the redirect is required.
 
 If the proxy forwards the full path instead (`/spool/api/...` reaches the app unchanged), set `BASE_PATH=/spool` (for example `podman run -e BASE_PATH=/spool ...`); the app then serves under `/spool/` and still answers `/healthz` at the root. Clear any client-sent prefix header at the proxy:
 

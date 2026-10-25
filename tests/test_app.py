@@ -165,8 +165,10 @@ def test_ui_drops_solid_weight():
 
 # ---------- sub-path hosting ----------
 
-def test_index_base_root(client):
-    assert '<base href="/">' in client.get("/").get_data(as_text=True)
+def test_index_no_base_at_root(client):
+    # No known mount point: no <base>, so relative URLs resolve against the page's address
+    # (this is what makes a prefix-stripping proxy without X-Forwarded-Prefix work).
+    assert "<base " not in client.get("/").get_data(as_text=True)
 
 
 def test_index_base_script_name(client):
@@ -177,7 +179,7 @@ def test_index_base_script_name(client):
 def test_forwarded_prefix_ignored_without_trust_proxy(monkeypatch):
     monkeypatch.delenv("TRUST_PROXY", raising=False)
     page = create_app().test_client().get("/", headers={"X-Forwarded-Prefix": "/spool"})
-    assert '<base href="/">' in page.get_data(as_text=True)
+    assert "<base " not in page.get_data(as_text=True)
 
 
 def test_forwarded_prefix_with_trust_proxy(monkeypatch):
@@ -195,13 +197,13 @@ HOSTILE_PREFIXES = ["//evil.example", "https://evil.example", "javascript:alert(
 
 
 @pytest.mark.parametrize("prefix", HOSTILE_PREFIXES)
-def test_hostile_forwarded_prefix_falls_back_to_root(monkeypatch, prefix):
+def test_hostile_forwarded_prefix_gets_no_base(monkeypatch, prefix):
     monkeypatch.setenv("TRUST_PROXY", "1")
     monkeypatch.delenv("BASE_PATH", raising=False)
     r = create_app().test_client().get("/", headers={"X-Forwarded-Prefix": prefix})
     page = r.get_data(as_text=True)
     assert r.status_code == 200 and r.headers["Cache-Control"] == "no-cache"
-    assert '<base href="/">' in page and page.count("<base ") == 1
+    assert "<base " not in page
 
 
 def test_base_path_ignores_forwarded_prefix(monkeypatch):
@@ -213,7 +215,7 @@ def test_base_path_ignores_forwarded_prefix(monkeypatch):
         assert '<base href="/spool/">' in page, forged
     # no spoof route: a forged prefix doesn't mount the app at the root
     page = c.get("/", headers={"X-Forwarded-Prefix": "/spool"}).get_data(as_text=True)
-    assert '<base href="/">' in page
+    assert "<base " not in page
 
 
 @pytest.mark.parametrize("bad", ["https://evil.example", "/a/../b", "/sp ool"])
@@ -234,7 +236,7 @@ def test_base_path_env(monkeypatch, base_path):
     assert c.get("/spool/static/app.js").status_code == 200
     r = c.get("/spool/api/half/a.stl")
     assert r.status_code == 200 and r.mimetype == "model/stl"
-    assert '<base href="/">' in c.get("/").get_data(as_text=True)  # outside the prefix
+    assert "<base " not in c.get("/").get_data(as_text=True)  # outside the prefix
 
 
 def test_frontend_urls_are_relative():
