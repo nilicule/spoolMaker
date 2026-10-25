@@ -1,0 +1,166 @@
+{
+  "classic@a1": {
+    "a_g": 74.98,
+    "b_g": 75.15,
+    "printer": "a1",
+    "query": {
+      "bambu_printer": "a1",
+      "gauge": "1",
+      "label": "1",
+      "lightweight": "0"
+    }
+  },
+  "classic@h2d": {
+    "a_g": 74.87,
+    "b_g": 75.04,
+    "printer": "h2d",
+    "query": {
+      "bambu_printer": "h2d",
+      "gauge": "1",
+      "label": "1",
+      "lightweight": "0"
+    }
+  },
+  "coil_70_bore_58@a1": {
+    "a_g": 55.07,
+    "b_g": 55.21,
+    "printer": "a1",
+    "query": {
+      "bambu_printer": "a1",
+      "bore_diameter": "58",
+      "coil_inner_diameter": "70.8",
+      "refill": "custom"
+    }
+  },
+  "coil_70_bore_58@h2d": {
+    "a_g": 54.95,
+    "b_g": 55.09,
+    "printer": "h2d",
+    "query": {
+      "bambu_printer": "h2d",
+      "bore_diameter": "58",
+      "coil_inner_diameter": "70.8",
+      "refill": "custom"
+    }
+  },
+  "default@a1": {
+    "a_g": 62.7,
+    "b_g": 62.88,
+    "printer": "a1",
+    "query": {
+      "bambu_printer": "a1"
+    }
+  },
+  "default@h2d": {
+    "a_g": 62.59,
+    "b_g": 62.76,
+    "printer": "h2d",
+    "query": {
+      "bambu_printer": "h2d"
+    }
+  },
+  "flange_2@a1": {
+    "a_g": 59.14,
+    "b_g": 59.31,
+    "printer": "a1",
+    "query": {
+      "bambu_printer": "a1",
+      "flange_thickness": "2"
+    }
+  },
+  "flange_2@h2d": {
+    "a_g": 59.03,
+    "b_g": 59.2,
+    "printer": "h2d",
+    "query": {
+      "bambu_printer": "h2d",
+      "flange_thickness": "2"
+    }
+  },
+  "flange_5@a1": {
+    "a_g": 73.68,
+    "b_g": 73.86,
+    "printer": "a1",
+    "query": {
+      "bambu_printer": "a1",
+      "coil_width": "56",
+      "flange_thickness": "5",
+      "refill": "custom"
+    }
+  },
+  "flange_5@h2d": {
+    "a_g": 73.57,
+    "b_g": 73.74,
+    "printer": "h2d",
+    "query": {
+      "bambu_printer": "h2d",
+      "coil_width": "56",
+      "flange_thickness": "5",
+      "refill": "custom"
+    }
+  },
+  "spokes@a1": {
+    "a_g": 71.39,
+    "b_g": 71.56,
+    "printer": "a1",
+    "query": {
+      "bambu_printer": "a1",
+      "pattern": "spokes"
+    }
+  },
+  "spokes@h2d": {
+    "a_g": 71.34,
+    "b_g": 71.52,
+    "printer": "h2d",
+    "query": {
+      "bambu_printer": "h2d",
+      "pattern": "spokes"
+    }
+  },
+  "voronoi_text_tag@a1": {
+    "a_g": 80.9,
+    "b_g": 81.08,
+    "printer": "a1",
+    "query": {
+      "bambu_printer": "a1",
+      "label": "1",
+      "pattern": "voronoi",
+      "pattern_density": "0.8",
+      "tag_pocket": "1",
+      "text": "PLA Basic"
+    }
+  },
+  "voronoi_text_tag@h2d": {
+    "a_g": 80.83,
+    "b_g": 81.0,
+    "printer": "h2d",
+    "query": {
+      "bambu_printer": "h2d",
+      "label": "1",
+      "pattern": "voronoi",
+      "pattern_density": "0.8",
+      "tag_pocket": "1",
+      "text": "PLA Basic"
+    }
+  },
+  "windows@a1": {
+    "a_g": 55.52,
+    "b_g": 55.69,
+    "printer": "a1",
+    "query": {
+      "bambu_printer": "a1",
+      "pattern": "windows",
+      "pattern_density": "1"
+    }
+  },
+  "windows@h2d": {
+    "a_g": 55.49,
+    "b_g": 55.66,
+    "printer": "h2d",
+    "query": {
+      "bambu_printer": "h2d",
+      "pattern": "windows",
+      "pattern_density": "1"
+    }
+  }
+}

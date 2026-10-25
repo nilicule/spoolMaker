@@ -25,6 +25,12 @@ def test_stats_default(client):
     assert j["valid"] and j["weight_g"]["total"] > 0 and len(j["gauge"]) == 4
 
 
+def test_stats_estimate(client):
+    j = client.get("/api/stats?bambu_printer=h2d").json
+    assert 0 < j["estimate_g"]["a"] < j["weight_g"]["a"]
+    assert "Bambu Lab H2D" in j["estimate_note"]
+
+
 def test_stats_invalid(client):
     j = client.get("/api/stats?refill=custom&coil_inner_diameter=58").json
     assert not j["valid"] and j["errors"] and "weight_g" not in j

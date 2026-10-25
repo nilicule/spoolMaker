@@ -9,6 +9,7 @@ from manifold3d import Manifold
 
 from .bambu import to_bambu_project
 from .config import SpoolConfig
+from .estimate import bambu_profile, extruded_mm3, volume_breakdown
 from .export import to_3mf, to_stl
 from .geometry.build import build_half
 
@@ -40,6 +41,12 @@ def _bambu(cfg: SpoolConfig, printer: str) -> bytes:
                             printer)
 
 
+@lru_cache(maxsize=128)
+def _extruded(cfg: SpoolConfig, half: str, printer: str) -> float:
+    profile = bambu_profile(printer)
+    return extruded_mm3(volume_breakdown(_half(cfg, half), profile), profile)
+
+
 def half(cfg: SpoolConfig, h: str) -> Manifold:
     return _half(_geometry_key(cfg), h)
 
@@ -54,3 +61,8 @@ def three_mf(cfg: SpoolConfig) -> bytes:
 
 def bambu_project(cfg: SpoolConfig) -> bytes:
     return _bambu(_geometry_key(cfg), cfg.bambu_printer)
+
+
+def extruded_mm3_for(cfg: SpoolConfig, h: str) -> float:
+    """Plastic (mm^3) the selected Bambu printer's profile lays down for half h."""
+    return _extruded(_geometry_key(cfg), h, cfg.bambu_printer)
